@@ -1,5 +1,18 @@
 # IA Compra Pisos
 
-Backend de datos para analizar el mercado residencial español y preparar futuros modelos de ayuda a la decisión de compra.
+Plataforma de datos para recopilar, normalizar y consultar indicadores del mercado residencial español. El MVP ofrece un backend FastAPI orquestable desde n8n, persistencia PostgreSQL y separación entre datos originales (`raw`) y datos preparados (`analytics`).
 
-> La implementación inicial se desarrolla mediante pull request antes de incorporarse a `master`.
+## Arranque
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+- API: `http://localhost:8000`
+- OpenAPI: `http://localhost:8000/docs`
+- Salud: `GET /api/v1/health`
+- Lanzar ingesta: `POST /api/v1/ingestions/{source}`
+- Consultar ejecuciones: `GET /api/v1/ingestions/runs`
+
+Consulta `architecture/` para el diseño, modelo de datos y fases.
