@@ -21,25 +21,13 @@ INDICATOR_BY_CATEGORY = {
 }
 
 CCAA_NAMES = {
-    "andalucia": "01",
-    "aragon": "02",
-    "asturias, principado de": "03",
-    "balears, illes": "04",
-    "canarias": "05",
-    "cantabria": "06",
-    "castilla y leon": "07",
-    "castilla - la mancha": "08",
-    "cataluna": "09",
-    "comunitat valenciana": "10",
-    "extremadura": "11",
-    "galicia": "12",
-    "madrid, comunidad de": "13",
-    "murcia, region de": "14",
-    "navarra, comunidad foral de": "15",
-    "pais vasco": "16",
-    "rioja, la": "17",
-    "ceuta": "18",
-    "melilla": "19",
+    "andalucia": "01", "aragon": "02", "asturias, principado de": "03",
+    "balears, illes": "04", "canarias": "05", "cantabria": "06",
+    "castilla y leon": "07", "castilla - la mancha": "08", "cataluna": "09",
+    "comunitat valenciana": "10", "extremadura": "11", "galicia": "12",
+    "madrid, comunidad de": "13", "murcia, region de": "14",
+    "navarra, comunidad foral de": "15", "pais vasco": "16", "rioja, la": "17",
+    "ceuta": "18", "melilla": "19",
 }
 
 PROVINCE_CODES = {
@@ -65,24 +53,13 @@ def _fold(value: str) -> str:
     return re.sub(r"\s+", " ", value.translate(translation).strip()).lower()
 
 
-def _split_dimensions(name: str) -> list[str]:
-    return [part.strip(" .") for part in re.split(r"[|;]", name) if part.strip(" .")]
-
-
-def _find_dimension(name: str, candidates: set[str]) -> str | None:
-    folded = _fold(name)
-    return next((candidate for candidate in candidates if candidate in folded), None)
-
-
 def _geography_code(series_name: str) -> str | None:
     folded = _fold(series_name)
     if "total nacional" in folded:
         return "ES"
-
     for province_name, code in PROVINCE_CODES.items():
         if re.search(rf"(^|[.;|])\s*(?:{code}\s+)?{re.escape(province_name)}\s*($|[.;|])", folded):
             return f"PROV:{code}"
-
     for ccaa_name, code in CCAA_NAMES.items():
         if re.search(rf"(^|[.;|])\s*(?:{code}\s+)?{re.escape(ccaa_name)}\s*($|[.;|])", folded):
             return f"CCAA:{code}"
@@ -108,11 +85,9 @@ def _period_from_observation(observation: dict[str, Any]) -> date:
     match = re.search(r"(?P<year>\d{4})M(?P<month>\d{1,2})", period_label)
     if match:
         return date(int(match.group("year")), int(match.group("month")), 1)
-
     month = observation.get("FK_Periodo") or observation.get("month")
     if year and month:
         return date(int(year), int(month), 1)
-
     timestamp = observation.get("Fecha")
     if timestamp is not None:
         value = float(timestamp)
@@ -138,7 +113,10 @@ class INETransmissionsIngestion(BaseIngestion):
 
     async def extract(self, parameters: dict[str, Any]) -> list[SourceRecord]:
         query = {"tip": parameters.get("tip", "AM")}
-        async with httpx.AsyncClient(timeout=settings.http_timeout_seconds) as client:
+        async with httpx.AsyncClient(
+            timeout=settings.http_timeout_seconds,
+            follow_redirects=True,
+        ) as client:
             response = await client.get(INE_API_URL, params=query)
             response.raise_for_status()
             payload = response.json()
@@ -174,7 +152,11 @@ class INETransmissionsIngestion(BaseIngestion):
                             "api_url": str(response.url),
                             "series_code": series_code,
                             "series_name": series_name,
-                            "series_metadata": {key: value for key, value in series.items() if key not in {"Data", "data"}},
+                            "series_metadata": {
+                                key: value
+                                for key, value in series.items()
+                                if key not in {"Data", "data"}
+                            },
                             "observation": observation,
                             "retrieved_at": retrieved_at.isoformat(),
                         },
@@ -190,7 +172,11 @@ class INETransmissionsIngestion(BaseIngestion):
             if not indicator_code or not record.geography_code or not record.period:
                 continue
             observation = record.payload["observation"]
-            value = _decimal(observation.get("Valor") if "Valor" in observation else observation.get("value"))
+            value = _decimal(
+                observation.get("Valor")
+                if "Valor" in observation
+                else observation.get("value")
+            )
             indicators.append(
                 IndicatorValue(
                     indicator_code=indicator_code,
@@ -203,7 +189,8 @@ class INETransmissionsIngestion(BaseIngestion):
                         "provider_table_id": INE_TABLE_ID,
                         "series_code": record.payload.get("series_code"),
                         "series_name": series_name,
-                        "provisional": observation.get("Secreto") is False and observation.get("FK_TipoDato") not in {None, 1},
+                        "provisional": observation.get("Secreto") is False
+                        and observation.get("FK_TipoDato") not in {None, 1},
                     },
                 )
             )
