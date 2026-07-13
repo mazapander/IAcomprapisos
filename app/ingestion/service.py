@@ -34,15 +34,7 @@ async def _mark_run_failed(
     requested_by: str,
     parameters: dict,
 ) -> IngestionRun:
-    """Persist an ingestion failure after the work transaction has been rolled back.
-
-    The UUID is passed as a plain Python value because ORM instances are expired by
-    rollback. Reading ``run.id`` after rollback can trigger an implicit async database
-    load and raise ``MissingGreenlet``, hiding the original ingestion error.
-    """
-    # Always dump the full traceback to the container logs BEFORE attempting to
-    # persist it, so operators can diagnose the failure even if the persistence
-    # step below itself raises.
+    """Persist an ingestion failure after the work transaction has been rolled back."""
     logger.exception(
         "Ingestion failed source=%s requested_by=%s parameters=%r error=%s",
         source,
@@ -134,10 +126,11 @@ async def execute_ingestion(
             len(indicators),
         )
 
+        indicator_table = IndicatorObservation.__table__
         for item in indicators:
-            metadata = item.metadata or {}
+            item_metadata = item.metadata or {}
             stmt = (
-                insert(IndicatorObservation)
+                insert(indicator_table)
                 .values(
                     indicator_code=item.indicator_code,
                     geography_code=item.geography_code,
@@ -148,19 +141,19 @@ async def execute_ingestion(
                     source=source,
                     source_run_id=run_id,
                     published_at=item.published_at,
-                    available_at=metadata.get("available_at"),
-                    metadata=metadata,
+                    available_at=item_metadata.get("available_at"),
+                    metadata=item_metadata,
                 )
                 .on_conflict_do_update(
                     constraint="uq_indicator_geo_period_source",
                     set_={
-                        "value": item.value,
-                        "frequency": item.frequency,
-                        "unit": item.unit,
-                        "source_run_id": run_id,
-                        "published_at": item.published_at,
-                        "available_at": metadata.get("available_at"),
-                        "metadata": metadata,
+                        indicator_table.c.value: item.value,
+                        indicator_table.c.frequency: item.frequency,
+                        indicator_table.c.unit: item.unit,
+                        indicator_table.c.source_run_id: run_id,
+                        indicator_table.c.published_at: item.published_at,
+                        indicator_table.c.available_at: item_metadata.get("available_at"),
+                        indicator_table.c.metadata: item_metadata,
                     },
                 )
             )
