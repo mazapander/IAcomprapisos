@@ -1,6 +1,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -22,6 +23,29 @@ def _raw_metadata(payload: dict) -> dict:
     }
 
 
+async def _mark_run_failed(
+    session: AsyncSession,
+    run_id: UUID,
+    error: Exception,
+) -> IngestionRun:
+    """Persist an ingestion failure after the work transaction has been rolled back.
+
+    The UUID is passed as a plain Python value because ORM instances are expired by
+    rollback. Reading ``run.id`` after rollback can trigger an implicit async database
+    load and raise ``MissingGreenlet``, hiding the original ingestion error.
+    """
+    persisted_run = await session.get(IngestionRun, run_id)
+    if persisted_run is None:
+        raise RuntimeError(f"Ingestion run {run_id} disappeared after rollback") from error
+
+    persisted_run.status = "failed"
+    persisted_run.error = f"{type(error).__name__}: {error}"
+    persisted_run.finished_at = datetime.now(UTC)
+    await session.commit()
+    await session.refresh(persisted_run)
+    return persisted_run
+
+
 async def execute_ingestion(
     session: AsyncSession,
     source: str,
@@ -39,6 +63,7 @@ async def execute_ingestion(
     session.add(run)
     await session.commit()
     await session.refresh(run)
+    run_id = run.id
 
     try:
         records = await job.extract(parameters)
@@ -54,7 +79,7 @@ async def execute_ingestion(
             stmt = (
                 insert(RawSourceRecord)
                 .values(
-                    run_id=run.id,
+                    run_id=run_id,
                     source=source,
                     dataset=record.dataset,
                     external_id=record.external_id,
@@ -83,7 +108,7 @@ async def execute_ingestion(
                     value=item.value,
                     unit=item.unit,
                     source=source,
-                    source_run_id=run.id,
+                    source_run_id=run_id,
                     published_at=item.published_at,
                     available_at=metadata.get("available_at"),
                     metadata=metadata,
@@ -94,7 +119,7 @@ async def execute_ingestion(
                         "value": item.value,
                         "frequency": item.frequency,
                         "unit": item.unit,
-                        "source_run_id": run.id,
+                        "source_run_id": run_id,
                         "published_at": item.published_at,
                         "available_at": metadata.get("available_at"),
                         "metadata": metadata,
@@ -107,19 +132,11 @@ async def execute_ingestion(
         run.status = "succeeded"
         run.finished_at = datetime.now(UTC)
         await session.commit()
+        await session.refresh(run)
+        return run
     except Exception as exc:
         await session.rollback()
-        persisted_run = await session.get(IngestionRun, run.id)
-        if persisted_run is None:
-            raise
-        persisted_run.status = "failed"
-        persisted_run.error = str(exc)
-        persisted_run.finished_at = datetime.now(UTC)
-        await session.commit()
-        run = persisted_run
-
-    await session.refresh(run)
-    return run
+        return await _mark_run_failed(session, run_id, exc)
 
 
 async def list_runs(session: AsyncSession, limit: int = 100) -> list[IngestionRun]:
