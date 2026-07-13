@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -9,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import IndicatorObservation, IngestionRun, RawSourceRecord
 from app.ingestion.registry import get_ingestion
+
+logger = logging.getLogger(__name__)
 
 
 def _raw_metadata(payload: dict) -> dict:
@@ -27,6 +30,9 @@ async def _mark_run_failed(
     session: AsyncSession,
     run_id: UUID,
     error: Exception,
+    source: str,
+    requested_by: str,
+    parameters: dict,
 ) -> IngestionRun:
     """Persist an ingestion failure after the work transaction has been rolled back.
 
@@ -34,6 +40,17 @@ async def _mark_run_failed(
     rollback. Reading ``run.id`` after rollback can trigger an implicit async database
     load and raise ``MissingGreenlet``, hiding the original ingestion error.
     """
+    # Always dump the full traceback to the container logs BEFORE attempting to
+    # persist it, so operators can diagnose the failure even if the persistence
+    # step below itself raises.
+    logger.exception(
+        "Ingestion failed source=%s requested_by=%s parameters=%r error=%s",
+        source,
+        requested_by,
+        parameters,
+        error,
+    )
+
     persisted_run = await session.get(IngestionRun, run_id)
     if persisted_run is None:
         raise RuntimeError(f"Ingestion run {run_id} disappeared after rollback") from error
@@ -52,6 +69,13 @@ async def execute_ingestion(
     requested_by: str,
     parameters: dict,
 ) -> IngestionRun:
+    logger.info(
+        "Ingestion starting source=%s requested_by=%s parameters=%r",
+        source,
+        requested_by,
+        parameters,
+    )
+
     job = get_ingestion(source)
     run = IngestionRun(
         source=source,
@@ -64,10 +88,17 @@ async def execute_ingestion(
     await session.commit()
     await session.refresh(run)
     run_id = run.id
+    logger.info("Ingestion run created source=%s run_id=%s", source, run_id)
 
     try:
         records = await job.extract(parameters)
         run.rows_received = len(records)
+        logger.info(
+            "Ingestion extract completed source=%s run_id=%s rows_received=%d",
+            source,
+            run_id,
+            len(records),
+        )
 
         for record in records:
             canonical = json.dumps(
@@ -96,6 +127,13 @@ async def execute_ingestion(
             await session.execute(stmt)
 
         indicators = job.transform(records)
+        logger.info(
+            "Ingestion transform completed source=%s run_id=%s rows_to_write=%d",
+            source,
+            run_id,
+            len(indicators),
+        )
+
         for item in indicators:
             metadata = item.metadata or {}
             stmt = (
@@ -133,10 +171,18 @@ async def execute_ingestion(
         run.finished_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(run)
+        logger.info(
+            "Ingestion succeeded source=%s run_id=%s rows_received=%d rows_written=%d duration_s=%.2f",
+            source,
+            run_id,
+            run.rows_received,
+            run.rows_written,
+            (run.finished_at - run.started_at).total_seconds(),
+        )
         return run
     except Exception as exc:
         await session.rollback()
-        return await _mark_run_failed(session, run_id, exc)
+        return await _mark_run_failed(session, run_id, exc, source, requested_by, parameters)
 
 
 async def list_runs(session: AsyncSession, limit: int = 100) -> list[IngestionRun]:

@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
@@ -7,6 +8,8 @@ import httpx
 
 from app.core.config import settings
 from app.ingestion.base import BaseIngestion, IndicatorValue, SourceRecord
+
+logger = logging.getLogger(__name__)
 
 INE_TABLE_ID = "6150"
 INE_TABLE_URL = "https://www.ine.es/jaxiT3/Tabla.htm?t=6150"
@@ -74,6 +77,36 @@ def _category(series_name: str) -> str | None:
     return None
 
 
+def _parse_ine_timestamp(value: Any) -> date | None:
+    """Parse the INE ``Fecha`` field.
+
+    The INE Tempus API returns ``Fecha`` either as a Unix epoch number (seconds
+    or milliseconds) or as an ISO 8601 string such as
+    ``"2026-04-01T00:00:00.000+02:00"``. This helper accepts both shapes and
+    returns the first day of the corresponding month, or ``None`` if the value
+    cannot be interpreted as a date.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        epoch = float(value) / (1000.0 if value > 10_000_000_000 else 1.0)
+        parsed = datetime.fromtimestamp(epoch, tz=UTC)
+        return date(parsed.year, parsed.month, 1)
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        try:
+            epoch = float(text)
+        except ValueError:
+            return None
+        epoch = epoch / (1000.0 if epoch > 10_000_000_000 else 1.0)
+        parsed = datetime.fromtimestamp(epoch, tz=UTC)
+    return date(parsed.year, parsed.month, 1)
+
+
 def _period_from_observation(observation: dict[str, Any]) -> date:
     year = observation.get("Anyo") or observation.get("year")
     period_label = str(
@@ -90,11 +123,9 @@ def _period_from_observation(observation: dict[str, Any]) -> date:
         return date(int(year), int(month), 1)
     timestamp = observation.get("Fecha")
     if timestamp is not None:
-        value = float(timestamp)
-        if value > 10_000_000_000:
-            value /= 1000
-        parsed = datetime.fromtimestamp(value, tz=UTC)
-        return date(parsed.year, parsed.month, 1)
+        parsed_date = _parse_ine_timestamp(timestamp)
+        if parsed_date is not None:
+            return parsed_date
     raise ValueError(f"Unable to determine INE period from observation: {observation}")
 
 
@@ -113,6 +144,7 @@ class INETransmissionsIngestion(BaseIngestion):
 
     async def extract(self, parameters: dict[str, Any]) -> list[SourceRecord]:
         query = {"tip": parameters.get("tip", "AM")}
+        logger.info("Fetching INE transmissions tip=%s", query["tip"])
         async with httpx.AsyncClient(
             timeout=settings.http_timeout_seconds,
             follow_redirects=True,
@@ -124,14 +156,29 @@ class INETransmissionsIngestion(BaseIngestion):
         if not isinstance(payload, list):
             raise ValueError("Unexpected INE response: expected a list of series")
 
+        logger.info("INE transmissions payload received series=%d", len(payload))
+
         retrieved_at = datetime.now(UTC)
         records: list[SourceRecord] = []
+        parsed_periods = 0
+        skipped_unsupported = 0
         for series in payload:
             series_name = str(series.get("Nombre") or series.get("name") or "")
             series_code = str(series.get("COD") or series.get("code") or "")
             geography = _geography_code(series_name)
             for observation in series.get("Data") or series.get("data") or []:
-                period = _period_from_observation(observation)
+                try:
+                    period = _period_from_observation(observation)
+                except ValueError as exc:
+                    skipped_unsupported += 1
+                    logger.warning(
+                        "Skipping INE observation without parseable period series=%s error=%s observation=%s",
+                        series_code,
+                        exc,
+                        observation,
+                    )
+                    continue
+                parsed_periods += 1
                 date_from = parameters.get("date_from")
                 date_to = parameters.get("date_to")
                 if date_from and period < date.fromisoformat(date_from):
@@ -162,6 +209,12 @@ class INETransmissionsIngestion(BaseIngestion):
                         },
                     )
                 )
+        logger.info(
+            "INE transmissions parsed periods=%d skipped=%d records=%d",
+            parsed_periods,
+            skipped_unsupported,
+            len(records),
+        )
         return records
 
     def transform(self, records: list[SourceRecord]) -> list[IndicatorValue]:
