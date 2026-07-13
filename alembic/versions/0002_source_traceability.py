@@ -1,6 +1,6 @@
 """source traceability and indicator catalog
 
-Revision ID: 0002_source_traceability_and_catalog
+Revision ID: 0002_source_traceability
 Revises: 0001_initial
 """
 
@@ -8,7 +8,7 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
-revision = "0002_source_traceability_and_catalog"
+revision = "0002_source_traceability"
 down_revision = "0001_initial"
 branch_labels = None
 depends_on = None

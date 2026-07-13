@@ -1,14 +1,14 @@
 """seed Euribor indicator definition
 
 Revision ID: 0003_seed_euribor_indicator
-Revises: 0002_source_traceability_and_catalog
+Revises: 0002_source_traceability
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 revision = "0003_seed_euribor_indicator"
-down_revision = "0002_source_traceability_and_catalog"
+down_revision = "0002_source_traceability"
 branch_labels = None
 depends_on = None
 
