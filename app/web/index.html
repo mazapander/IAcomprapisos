@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IA Compra Pisos</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; } h1 { margin-bottom: 0; } section { margin: 2rem 0; } form, .actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: end; } label { display: grid; gap: .25rem; } input, select, button { font: inherit; padding: .45rem .6rem; } button { cursor: pointer; } table { width: 100%; border-collapse: collapse; margin-top: .8rem; } th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #8885; vertical-align: top; } .error { color: #c22; } .muted { color: #777; } @media (max-width: 700px) { body { margin-top: 1rem; } table { font-size: .85rem; } .scroll { overflow-x: auto; } }
+  </style>
+</head>
+<body>
+  <h1>IA Compra Pisos</h1>
+  <p class="muted">Consulta de ingestas e indicadores.</p>
+
+  <section>
+    <form id="filters">
+      <label>Indicador <input name="indicator_code" placeholder="Ej. ine_transmissions"></label>
+      <label>Geografía <input name="geography_code" placeholder="Ej. ES"></label>
+      <label>Desde <input name="date_from" type="date"></label>
+      <label>Hasta <input name="date_to" type="date"></label>
+      <button>Buscar datos</button>
+    </form>
+    <div class="actions"><button id="latest">Último dato por serie</button><button id="catalog">Catálogo</button></div>
+    <p id="summary" class="muted"></p>
+    <div class="scroll"><table id="data"><thead></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <h2>Ingestas</h2>
+    <div class="actions"><button id="runs">Actualizar ejecuciones</button></div>
+    <div class="scroll"><table id="run-data"><thead></thead><tbody></tbody></table></div>
+    <h3>Lanzar ingesta</h3>
+    <form id="ingest">
+      <label>Fuente <select name="source" id="source"></select></label>
+      <label>Clave API <input name="api_key" type="password" autocomplete="off"></label>
+      <label>Desde <input name="date_from" type="date"></label>
+      <button>Ejecutar</button>
+    </form>
+    <p id="message"></p>
+  </section>
+
+  <script>
+    const $ = s => document.querySelector(s);
+    const api = '/api/v1';
+    const show = (table, rows) => {
+      const columns = [...new Set(rows.flatMap(Object.keys))];
+      table.querySelector('thead').innerHTML = `<tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
+      table.querySelector('tbody').innerHTML = rows.map(row => `<tr>${columns.map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`).join('');
+    };
+    const get = async url => { const r = await fetch(url); if (!r.ok) throw Error(await r.text()); return r.json(); };
+    const loadObservations = async (latest = false) => {
+      const params = new URLSearchParams(new FormData($('#filters'))); [...params.entries()].forEach(([k,v]) => !v && params.delete(k));
+      const result = await get(`${api}/analytics/${latest ? 'latest' : 'observations'}?${params}`);
+      const rows = result.data || result; show($('#data'), rows); $('#summary').textContent = `${rows.length} registros`;
+    };
+    $('#filters').onsubmit = async e => { e.preventDefault(); try { await loadObservations(); } catch (e) { $('#summary').textContent = e.message; } };
+    $('#latest').onclick = () => loadObservations(true).catch(e => $('#summary').textContent = e.message);
+    $('#catalog').onclick = async () => { const result = await get(`${api}/analytics/catalog`); show($('#data'), result.data); $('#summary').textContent = `${result.count} indicadores`; };
+    $('#runs').onclick = async () => { const rows = await get(`${api}/ingestions/runs`); show($('#run-data'), rows); };
+    $('#ingest').onsubmit = async e => {
+      e.preventDefault(); const form = new FormData(e.currentTarget); const parameters = form.get('date_from') ? {date_from: form.get('date_from')} : {};
+      const r = await fetch(`${api}/ingestions/${form.get('source')}`, {method:'POST', headers:{'Content-Type':'application/json','X-API-Key':form.get('api_key')}, body:JSON.stringify({requested_by:'web', parameters})});
+      $('#message').textContent = r.ok ? 'Ingesta terminada.' : `Error: ${await r.text()}`; $('#message').className = r.ok ? '' : 'error'; if (r.ok) $('#runs').click();
+    };
+    get(`${api}/ingestions/sources`).then(({sources}) => { $('#source').innerHTML = sources.map(s => `<option>${s}</option>`).join(''); });
+    loadObservations().catch(e => $('#summary').textContent = e.message); $('#runs').click();
+  </script>
+</body>
+</html>

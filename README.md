@@ -29,14 +29,14 @@ docker compose up --build
 ## Ejemplos n8n / curl
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/ingestions/ine_transmissions \
+curl -X POST http://iacomprapisos:8000/api/v1/ingestions/ine_transmissions \
   -H "X-API-Key: change-me" \
   -H "Content-Type: application/json" \
   -d '{"requested_by":"n8n-monthly","parameters":{"date_from":"2020-01-01"}}'
 ```
 
 ```bash
-curl -X POST http://localhost:8000/api/v1/ingestions/bde_euribor \
+curl -X POST http://iacomprapisos:8000/api/v1/ingestions/bde_euribor \
   -H "X-API-Key: change-me" \
   -H "Content-Type: application/json" \
   -d '{"requested_by":"n8n-monthly","parameters":{"date_from":"1999-01-01"}}'
