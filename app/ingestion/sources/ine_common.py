@@ -64,6 +64,10 @@ def _parse_ine_timestamp(value: Any) -> date | None:
 
 def parse_period(obs: dict[str, Any], frequency: str) -> date:
     label = str(obs.get("T3_Periodo") or obs.get("Periodo") or obs.get("period") or "")
+    if frequency == "annual":
+        match = re.search(r"\b(\d{4})\b", label)
+        if match:
+            return date(int(match.group(1)), 1, 1)
     if frequency == "quarterly":
         match = re.search(r"(\d{4})T([1-4])", label)
         if match:
@@ -73,12 +77,21 @@ def parse_period(obs: dict[str, Any], frequency: str) -> date:
         return date(int(match.group(1)), int(match.group(2)), 1)
     year = obs.get("Anyo")
     period = obs.get("FK_Periodo")
-    if year and period:
-        return date(int(year), ((int(period) - 1) * 3 + 1) if frequency == "quarterly" else int(period), 1)
+    if year:
+        if frequency == "annual":
+            return date(int(year), 1, 1)
+        if period:
+            return date(
+                int(year),
+                ((int(period) - 1) * 3 + 1) if frequency == "quarterly" else int(period),
+                1,
+            )
     timestamp = obs.get("Fecha")
     if timestamp is not None:
         parsed_date = _parse_ine_timestamp(timestamp)
         if parsed_date is not None:
+            if frequency == "annual":
+                return date(parsed_date.year, 1, 1)
             return parsed_date
     raise ValueError(f"Cannot parse INE period: {obs}")
 

@@ -1,6 +1,8 @@
 from app.ingestion.base import BaseIngestion
 from app.ingestion.sources.bde_euribor import BDEEuriborIngestion
+from app.ingestion.sources.bde_mortgage_market import BDEMortgageMarketIngestion
 from app.ingestion.sources.ine_house_prices import INEHousePricesIngestion
+from app.ingestion.sources.ine_income import INEHouseholdIncomeIngestion
 from app.ingestion.sources.ine_mortgages import INEMortgagesIngestion
 from app.ingestion.sources.ine_transmissions import INETransmissionsIngestion
 from app.ingestion.sources.mivau_appraisal import MIVAUAppraisalIngestion
@@ -10,7 +12,9 @@ _SOURCES: list[BaseIngestion] = [
     INETransmissionsIngestion(),
     INEHousePricesIngestion(),
     INEMortgagesIngestion(),
+    INEHouseholdIncomeIngestion(),
     BDEEuriborIngestion(),
+    BDEMortgageMarketIngestion(),
     MIVAUAppraisalIngestion(),
     MIVAURentIngestion(),
 ]
