@@ -6,7 +6,7 @@
   <title>IA Compra Pisos</title>
   <style>
     :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-    body { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; } h1 { margin-bottom: 0; } section { margin: 2.5rem 0; } form, .actions { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; } label { display: grid; gap: .25rem; min-width: 150px; } input, select, button { font: inherit; padding: .55rem .7rem; } button { cursor: pointer; } .hero { max-width: 760px; font-size: 1.08rem; } .error { color: #c22; } .muted { color: #777; } .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin-top: 1rem; } .metric { border: 1px solid #8885; border-radius: .7rem; padding: .9rem; background: #8881; } .metric strong { display: block; font-size: 1.35rem; margin: .3rem 0; } .metric small { color: #777; } .coverage, .assessment, .privacy { margin-top: 1rem; padding: .9rem; border-left: 4px solid #568bd8; background: #568bd812; } .assessment[data-status="high_risk"] { border-color: #c33; } .assessment[data-status="review"] { border-color: #d89222; } .alerts { margin: .5rem 0 0; padding-left: 1.2rem; } .privacy { border-color: #4a9b69; } .wide { flex: 1 1 230px; } @media (max-width: 700px) { body { margin-top: 1rem; } label { width: 100%; } }
+    body { max-width: 1200px; margin: 2rem auto; padding: 0 1rem 7rem; } h1 { margin-bottom: 0; } section { margin: 2.5rem 0; } form, .actions { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; } label { display: grid; gap: .25rem; min-width: 150px; } input, select, textarea, button { font: inherit; padding: .55rem .7rem; } textarea { width: min(100%, 720px); min-height: 7rem; } button { cursor: pointer; } .hero { max-width: 760px; font-size: 1.08rem; } .error { color: #c22; } .success { color: #287446; } .muted { color: #777; } .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin-top: 1rem; } .metric { border: 1px solid #8885; border-radius: .7rem; padding: .9rem; background: #8881; } .metric strong { display: block; font-size: 1.35rem; margin: .3rem 0; } .metric small { color: #777; } .coverage, .assessment, .privacy { margin-top: 1rem; padding: .9rem; border-left: 4px solid #568bd8; background: #568bd812; } .assessment[data-status="high_risk"] { border-color: #c33; } .assessment[data-status="review"] { border-color: #d89222; } .alerts { margin: .5rem 0 0; padding-left: 1.2rem; } .privacy { border-color: #4a9b69; } .wide { flex: 1 1 230px; } .stack { display: grid; gap: .7rem; align-items: start; } .consent { position: fixed; inset: auto 1rem 1rem; max-width: 760px; margin: auto; z-index: 5; padding: 1rem; border: 1px solid #7778; border-radius: .8rem; background: Canvas; box-shadow: 0 .5rem 2rem #0004; } .consent p { margin-top: 0; } .consent .actions button { min-width: 10rem; } @media (max-width: 700px) { body { margin-top: 1rem; } label { width: 100%; } .consent { inset-inline: .5rem; } }
   </style>
 </head>
 <body>
@@ -31,7 +31,20 @@
     </form>
     <div id="assessment" class="assessment" hidden></div>
     <div id="mortgage-results" class="card-grid"></div>
-    <div class="privacy"><strong>Privacidad por defecto.</strong> Los datos se usan para calcular la respuesta y no se guardan en el servidor. Solo se conservan en tu navegador si marcas la opción anterior. No utilizamos cookies publicitarias. <button id="forget" type="button">Borrar escenario local</button></div>
+    <div class="privacy"><strong>Privacidad por defecto.</strong> Tus importes se usan para calcular la respuesta y no se guardan en el servidor. Con permiso, medimos únicamente eventos de uso y resultados por tramos; nunca renta, ahorro, deuda, precio, dirección ni datos bancarios. <button id="forget" type="button">Borrar escenario local</button> <button id="privacy-settings" type="button">Preferencias de medición</button></div>
+  </section>
+
+  <section>
+    <h2>¿Qué duda te queda?</h2>
+    <p class="muted">Cuéntanos qué no está claro. Guardaremos el texto para mejorar el servicio; no incluyas DNI, cuenta bancaria ni documentación privada.</p>
+    <form id="question-form" class="stack">
+      <label>Tipo de duda <select name="category"><option value="affordability">Si puedo permitírmelo</option><option value="offer">Comparar una oferta</option><option value="costs">Entrada y gastos</option><option value="market">Mercado de la zona</option><option value="process">Proceso de compra</option><option value="other">Otra</option></select></label>
+      <label>Momento de compra <select name="journey_stage"><option value="exploring">Estoy explorando</option><option value="comparing">Estoy comparando</option><option value="offer_received">Tengo una oferta</option><option value="ready_to_sign">Voy a firmar</option></select></label>
+      <label class="wide">Tu duda <textarea name="question" minlength="5" maxlength="2000" required></textarea></label>
+      <label class="wide"><input name="privacy_notice_accepted" type="checkbox" required> Acepto que se guarde esta pregunta para analizarla y mejorar el servicio.</label>
+      <button>Enviar duda</button>
+    </form>
+    <p id="question-status" aria-live="polite"></p>
   </section>
 
   <section>
@@ -50,10 +63,28 @@
     <div id="coverage" class="coverage muted">Cargando cobertura…</div>
   </section>
 
+  <aside id="consent-banner" class="consent" hidden aria-label="Preferencias de medición">
+    <p><strong>Ayúdanos a mejorar.</strong> Con tu permiso usamos dos cookies propias para medir el embudo de uso. No guardamos tus cifras financieras ni usamos publicidad o seguimiento entre webs.</p>
+    <div class="actions"><button id="accept-analytics" type="button">Aceptar medición</button><button id="reject-analytics" type="button">Rechazar</button></div>
+  </aside>
+
   <script>
     const $ = s => document.querySelector(s);
     const api = '/api/v1';
     const get = async url => { const r = await fetch(url); if (!r.ok) throw Error(await r.text()); return r.json(); };
+    const cookie = name => document.cookie.split('; ').find(row => row.startsWith(`${name}=`))?.split('=')[1];
+    const sessionId = sessionStorage.getItem('iacomprapisos.session') || crypto.randomUUID();
+    sessionStorage.setItem('iacomprapisos.session', sessionId);
+    const track = async (event_name, properties = {}) => {
+      if (cookie('iacp_consent') !== 'accepted') return;
+      try { await fetch(`${api}/product/events`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event_name, session_id:sessionId, page_path:location.pathname, properties})}); } catch (_) { /* La medición nunca debe bloquear la herramienta. */ }
+    };
+    const setConsent = async choice => {
+      const response = await fetch(`${api}/product/consent`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({choice})});
+      if (!response.ok) throw Error(await response.text());
+      $('#consent-banner').hidden = true;
+      if (choice === 'accepted') track('page_view', {source:'direct'});
+    };
     const marketLabels = {
       price_eur_m2: 'Precio', annual_household_net_income_eur: 'Renta neta hogar',
       salary_income_weight_pct: 'Peso salarios', mortgages_yoy_pct: 'Hipotecas interanual',
@@ -94,7 +125,7 @@
         card.append(label, value, detail); target.append(card);
       });
     };
-    const loadMarket = async () => {
+    const loadMarket = async (userInitiated = false) => {
       const form = new FormData($('#market-filters')); const code = form.get('geography_code').trim();
       const params = new URLSearchParams({home_size_m2: form.get('home_size_m2'), ltv_pct: form.get('ltv_pct'), term_years: form.get('term_years')});
       const result = await get(`${api}/markets/${encodeURIComponent(code)}/summary?${params}`);
@@ -104,10 +135,12 @@
       renderMetrics($('#derived-card'), derived);
       const p = result.derived.historical_percentiles;
       $('#coverage').textContent = `Cobertura ${result.coverage.available_fields}/${result.coverage.total_fields} (${number(result.coverage.ratio_pct, 0)} %). Percentiles históricos — precio: ${p.price ?? 'N/D'}, price-to-income: ${p.price_to_income ?? 'N/D'}, price-to-rent: ${p.price_to_rent ?? 'N/D'}.`;
+      if (userInitiated) track('market_compared', {geography_code:code});
     };
-    $('#market-filters').onsubmit = e => { e.preventDefault(); loadMarket().catch(error => $('#coverage').textContent = error.message); };
+    $('#market-filters').onsubmit = e => { e.preventDefault(); loadMarket(true).catch(error => $('#coverage').textContent = error.message); };
     const reviewLabels = {balanced: 'Escenario equilibrado', review: 'Conviene revisarlo', high_risk: 'Riesgo elevado'};
     const reviewMortgage = async formElement => {
+      track('review_started');
       const form = new FormData(formElement);
       const marketForm = new FormData($('#market-filters'));
       let market = null;
@@ -119,18 +152,32 @@
       const response = await fetch(`${api}/mortgages/review`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
       if (!response.ok) throw Error(await response.text());
       const result = await response.json();
-      if (form.get('save_local')) localStorage.setItem('iacomprapisos.mortgageScenario', JSON.stringify(payload));
+      if (form.get('save_local')) { localStorage.setItem('iacomprapisos.mortgageScenario', JSON.stringify(payload)); track('scenario_saved'); }
       else localStorage.removeItem('iacomprapisos.mortgageScenario');
       const assessment = $('#assessment'); assessment.hidden = false; assessment.dataset.status = result.status;
       assessment.replaceChildren(); const title = document.createElement('strong'); title.textContent = reviewLabels[result.status]; assessment.append(title);
       if (result.alerts.length) { const list = document.createElement('ul'); list.className = 'alerts'; result.alerts.forEach(alert => { const item = document.createElement('li'); item.textContent = alert.message; list.append(item); }); assessment.append(list); }
       const metrics = Object.fromEntries(Object.entries(result.calculations).filter(([key]) => !['purchase_costs_eur','total_repayment_eur'].includes(key)).map(([key,value]) => [key,{value,unit:key.endsWith('_eur') ? 'eur' : key.endsWith('_pct') ? 'percent' : key.endsWith('_pp') ? 'percentage_points' : key.endsWith('_months') ? 'months' : null}]));
       renderMetrics($('#mortgage-results'), metrics);
+      const effort = Number(result.calculations.effort_pct);
+      const ltv = Number(result.calculations.ltv_pct);
+      track('review_completed', {result_status:result.status, effort_bucket:effort < 30 ? 'under_30' : effort < 40 ? '30_39' : '40_plus', ltv_bucket:ltv <= 80 ? 'up_to_80' : 'over_80', alert_count_bucket:result.alerts.length === 0 ? '0' : result.alerts.length < 3 ? '1_2' : '3_plus'});
     };
     $('#mortgage-review').onsubmit = e => { e.preventDefault(); reviewMortgage(e.currentTarget).catch(error => { const assessment = $('#assessment'); assessment.hidden = false; assessment.textContent = error.message; }); };
     $('#forget').onclick = () => { localStorage.removeItem('iacomprapisos.mortgageScenario'); $('#mortgage-review').reset(); $('#assessment').hidden = true; $('#mortgage-results').replaceChildren(); };
     const saved = localStorage.getItem('iacomprapisos.mortgageScenario');
     if (saved) { const scenario = JSON.parse(saved); Object.entries(scenario).forEach(([key,value]) => { const field = document.querySelector(`#mortgage-review [name="${key}"]`); if (field) field.value = value; }); $('#mortgage-review [name="save_local"]').checked = true; }
+    $('#question-form').onsubmit = async e => {
+      e.preventDefault(); const form = new FormData(e.currentTarget); const status = $('#question-status');
+      const geography_code = new FormData($('#market-filters')).get('geography_code').trim() || null;
+      const payload = {question:form.get('question'), category:form.get('category'), journey_stage:form.get('journey_stage'), geography_code, privacy_notice_accepted:form.get('privacy_notice_accepted') === 'on'};
+      try { const response = await fetch(`${api}/product/questions`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); if (!response.ok) throw Error(await response.text()); e.currentTarget.reset(); status.className = 'success'; status.textContent = 'Gracias. Hemos recibido tu duda.'; track('question_submitted', {geography_code}); } catch (error) { status.className = 'error'; status.textContent = error.message; }
+    };
+    $('#accept-analytics').onclick = () => setConsent('accepted').catch(error => alert(error.message));
+    $('#reject-analytics').onclick = () => setConsent('rejected').catch(error => alert(error.message));
+    $('#privacy-settings').onclick = () => { $('#consent-banner').hidden = false; };
+    if (!cookie('iacp_consent')) $('#consent-banner').hidden = false;
+    else if (cookie('iacp_consent') === 'accepted') track('page_view', {source:'direct'});
     loadMarket().catch(e => $('#coverage').textContent = e.message);
   </script>
 </body>

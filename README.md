@@ -76,8 +76,13 @@ una aprobación crediticia.
 La web pública guarda el escenario únicamente en `localStorage` y solo cuando la persona
 marca expresamente «Guardar este escenario». El formulario no usa cookies para renta,
 ahorro, deuda o condiciones de la oferta, y el endpoint no persiste el cuerpo de la
-petición. La medición de producto futura deberá ser agregada y requerir consentimiento
-antes de activar cookies no esenciales.
+petición.
+
+La medición propia se activa únicamente tras consentimiento. Registra el embudo de uso,
+resultados por tramos y geografía máxima de provincia; el contrato de la API rechaza campos
+financieros. Las dudas enviadas voluntariamente se almacenan por separado para revisión.
+El panel interno está en `/admin.html` y sus datos requieren `X-API-Key`. Consulta
+`deploy/README.md` para publicar el servicio, configurar el proxy y automatizar la retención.
 
 ## Ejemplos n8n / curl
 
@@ -108,6 +113,9 @@ curl -X POST http://iacomprapisos:8000/api/v1/ingestions/bde_euribor \
 - `analytics.indicators`: catálogo y reglas de frecuencia/agregación.
 - `analytics.indicator_observations`: valores normalizados sin alterar la frecuencia nativa.
 - `control.ingestion_runs`: historial, estado, parámetros, conteos y errores.
+- `product.visitors`: identificadores anónimos con consentimiento y caducidad.
+- `product.events`: eventos permitidos del embudo, sin importes financieros.
+- `product.questions`: dudas enviadas expresamente y su estado de revisión.
 
 Consulta `architecture/` para la visión, el modelo de datos, las fichas de fuentes y las
 fases de desarrollo.

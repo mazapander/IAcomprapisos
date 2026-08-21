@@ -1,0 +1,23 @@
+services:
+  api:
+    container_name: iacomprapisos
+    build:
+      context: ..
+    env_file:
+      - ../.env.production
+    expose:
+      - "8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - apps
+
+networks:
+  apps:
+    external: true
+    name: apps

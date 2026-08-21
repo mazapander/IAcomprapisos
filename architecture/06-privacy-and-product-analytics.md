@@ -14,16 +14,23 @@ El MVP aplica estas reglas:
 4. El usuario puede borrar el escenario desde la propia interfaz.
 5. No hay trackers, píxeles ni cookies de analítica habilitados por defecto.
 
-## Medición futura
+## Medición consentida
 
-La analítica de producto puede medir eventos como `review_started`, `review_completed` o
-`market_compared`, pero no debe incluir importes, renta, deuda, dirección, identificadores
-bancarios ni el contenido de una FEIN. Los conteos de alertas se agruparán en intervalos
-y la geografía no será más precisa que provincia.
+La analítica propia mide eventos como `review_started`, `review_completed` o
+`market_compared`, pero no incluye importes, renta, deuda, ahorro, precio, dirección,
+identificadores bancarios ni el contenido de una FEIN. Esos campos no están permitidos por
+el esquema de la API. Los conteos de alertas, esfuerzo y LTV se agrupan en intervalos y la
+geografía no es más precisa que provincia.
 
-Antes de activar cookies no esenciales se incorporará una capa de consentimiento con
-aceptación y rechazo equivalentes. La preferencia de consentimiento será el único dato
-apropiado para una cookie funcional específica.
+La capa de consentimiento muestra aceptación y rechazo equivalentes. La cookie funcional
+`iacp_consent` recuerda la preferencia y `iacp_visitor`, propia y HttpOnly, solo se crea al
+aceptar. Al retirar el consentimiento se eliminan el identificador y sus eventos. Los datos
+caducan según `PRODUCT_DATA_RETENTION_DAYS` y se purgan mediante el endpoint administrativo.
+
+Las preguntas se guardan en una tabla separada únicamente cuando la persona acepta el
+aviso junto al formulario. Su texto no se copia a la tabla de eventos. Antes de producción,
+el responsable debe completar los avisos legales con su identidad, contacto, finalidad,
+base jurídica, conservación y procedimiento de ejercicio de derechos.
 
 ## Evolución con cuenta de usuario
 
