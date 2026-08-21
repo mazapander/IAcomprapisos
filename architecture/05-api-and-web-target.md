@@ -44,3 +44,15 @@ en vez de fabricar valores cuando faltan renta, TAE o alquiler. Los indicadores
 `mortgage_new_business_aprc_pct` y `mortgage_new_business_volume_million_eur` alimentan
 directamente la ficha. Sus aliases preservan el contrato público ante futuras revisiones
 del catálogo.
+
+## Asistente hipotecario y privacidad
+
+`POST /api/v1/mortgages/review` transforma datos voluntarios del escenario en métricas
+explicables: cuota, esfuerzo, LTV, entrada y gastos, colchón, coste total, spread y estrés
+de tipos. El endpoint es determinista, no persiste la petición y separa el dato oficial
+de las hipótesis del usuario.
+
+El navegador utiliza almacenamiento local opt-in para recuperar un escenario. Los datos
+financieros personales no se guardan en cookies ni se envían a terceros. Las cookies no
+esenciales y la analítica de comportamiento quedan desactivadas hasta disponer de una
+capa de consentimiento y una finalidad documentada.

@@ -41,6 +41,7 @@ docker compose up --build
 - Consultar ejecuciones: `GET /api/v1/ingestions/runs`
 - Consultar indicadores: `GET /api/v1/analytics/indicators`
 - Ficha territorial de producto: `GET /api/v1/markets/PROV:24/summary`
+- Revisión de una oferta hipotecaria: `POST /api/v1/mortgages/review`
 
 ## Capa de producto
 
@@ -63,6 +64,20 @@ estimación como dato oficial.
 ```bash
 curl 'http://localhost:8000/api/v1/markets/PROV:24/summary?home_size_m2=90&ltv_pct=80&term_years=25'
 ```
+
+### Asistente de decisión hipotecaria
+
+`POST /api/v1/mortgages/review` cruza el escenario aportado por la persona con la TAE y
+el Euríbor observados. Devuelve cuota, esfuerzo, LTV, efectivo necesario, ahorro restante,
+colchón de emergencia, intereses totales y un estrés de tipos de dos puntos. Las alertas
+explican problemas concretos de liquidez, endeudamiento o exposición a tipos; no emiten
+una aprobación crediticia.
+
+La web pública guarda el escenario únicamente en `localStorage` y solo cuando la persona
+marca expresamente «Guardar este escenario». El formulario no usa cookies para renta,
+ahorro, deuda o condiciones de la oferta, y el endpoint no persiste el cuerpo de la
+petición. La medición de producto futura deberá ser agregada y requerir consentimiento
+antes de activar cookies no esenciales.
 
 ## Ejemplos n8n / curl
 
