@@ -40,6 +40,29 @@ docker compose up --build
 - Lanzar ingesta: `POST /api/v1/ingestions/{source}`
 - Consultar ejecuciones: `GET /api/v1/ingestions/runs`
 - Consultar indicadores: `GET /api/v1/analytics/indicators`
+- Ficha territorial de producto: `GET /api/v1/markets/PROV:24/summary`
+
+## Capa de producto
+
+`GET /api/v1/markets/{geography_code}/summary` devuelve una ficha territorial lista
+para web con precio, renta neta del hogar, peso de salarios, variación interanual de
+hipotecas, TAE de nuevas hipotecas, volumen de financiación, Euríbor y esfuerzo de
+compra estimado. También calcula en backend:
+
+- spread hipotecario (TAE menos Euríbor);
+- esfuerzo de compra con tamaño, LTV y plazo configurables;
+- price-to-income y price-to-rent;
+- evolución del precio ajustada por renta;
+- percentiles históricos de precio y ratios.
+
+La respuesta conserva periodo, fuente, indicador y geografía efectiva de cada dato.
+Si todavía no existe TAE observada, el esfuerzo puede usar Euríbor más un spread
+configurable, pero la TAE continúa figurando como ausente. Nunca se presenta una
+estimación como dato oficial.
+
+```bash
+curl 'http://localhost:8000/api/v1/markets/PROV:24/summary?home_size_m2=90&ltv_pct=80&term_years=25'
+```
 
 ## Ejemplos n8n / curl
 
