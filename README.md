@@ -13,7 +13,7 @@ para ser orquestado desde n8n.
 | `ine_mortgages` | INE | Tabla 3200, hipotecas sobre viviendas | Mensual |
 | `ine_household_income` | INE | Tablas 53689 y 53687, renta de hogares y fuentes de ingreso | Anual |
 | `bde_euribor` | Banco de España | `be1901.csv`, Euríbor a un año | Mensual |
-| `bde_mortgage_market` | Banco de España | `be1906.csv` y `be1912.csv`, TAE e importe de nuevas operaciones de vivienda | Mensual |
+| `bde_mortgage_market` | Banco de España | `be1904.csv`, `be1906.csv` y `be1912.csv`: TEDR, TAE e importe de nuevas operaciones | Mensual |
 | `mivau_appraisal` | MIVAU | Valor tasado de vivienda | Trimestral |
 | `mivau_rent` | MIVAU | SERPAVI, renta de alquiler | Anual |
 
@@ -22,8 +22,8 @@ escriben en `analytics` y las ejecuciones se auditan en `control`.
 
 `ine_household_income` incorpora tanto niveles de renta media/mediana como el peso de
 salarios, pensiones, prestaciones por desempleo, otras prestaciones y otros ingresos.
-`bde_mortgage_market` incorpora la TAE de nuevas operaciones de crédito a la vivienda y
-su importe mensual. La definición MIR del Banco de España incluye renegociaciones dentro
+`bde_mortgage_market` incorpora TEDR, TAE e importe de nuevas operaciones de vivienda. La
+definición MIR del Banco de España incluye renegociaciones dentro
 de las nuevas operaciones; este matiz se conserva en los metadatos.
 
 ## Arranque
@@ -50,15 +50,15 @@ para web con precio, renta neta del hogar, peso de salarios, variación interanu
 hipotecas, TAE de nuevas hipotecas, volumen de financiación, Euríbor y esfuerzo de
 compra estimado. También calcula en backend:
 
-- spread hipotecario (TAE menos Euríbor);
+- proxy de spread hipotecario de mercado (TEDR variable menos Euríbor);
 - esfuerzo de compra con tamaño, LTV y plazo configurables;
 - price-to-income y price-to-rent;
 - evolución del precio ajustada por renta;
 - percentiles históricos de precio y ratios.
 
 La respuesta conserva periodo, fuente, indicador y geografía efectiva de cada dato.
-Si todavía no existe TAE observada, el esfuerzo puede usar Euríbor más un spread
-configurable, pero la TAE continúa figurando como ausente. Nunca se presenta una
+Si todavía no existe TEDR observado, el esfuerzo puede usar Euríbor más un spread
+configurable, pero el TEDR continúa figurando como ausente. Nunca se presenta una
 estimación como dato oficial.
 
 ```bash
@@ -67,8 +67,8 @@ curl 'http://localhost:8000/api/v1/markets/PROV:24/summary?home_size_m2=90&ltv_p
 
 ### Asistente de decisión hipotecaria
 
-`POST /api/v1/mortgages/review` cruza el escenario aportado por la persona con la TAE y
-el Euríbor observados. Devuelve cuota, esfuerzo, LTV, efectivo necesario, ahorro restante,
+`POST /api/v1/mortgages/review` calcula la cuota con el TIN y usa TAE y Euríbor solo para
+comparaciones coherentes. Devuelve cuota, esfuerzo, LTV, efectivo necesario, ahorro restante,
 colchón de emergencia, intereses totales y un estrés de tipos de dos puntos. Las alertas
 explican problemas concretos de liquidez, endeudamiento o exposición a tipos; no emiten
 una aprobación crediticia.
@@ -117,5 +117,6 @@ curl -X POST http://iacomprapisos:8000/api/v1/ingestions/bde_euribor \
 - `product.events`: eventos permitidos del embudo, sin importes financieros.
 - `product.questions`: dudas enviadas expresamente y su estado de revisión.
 
-Consulta `architecture/` para la visión, el modelo de datos, las fichas de fuentes y las
-fases de desarrollo.
+Consulta `architecture/07-security-data-integrity-audit.md` para el dictamen, las fuentes,
+los cálculos validados y los riesgos abiertos, y `architecture/08-product-feature-roadmap.md`
+para las mejoras propuestas.

@@ -43,15 +43,17 @@ incorporar una dimensión geográfica canónica de mayor granularidad.
 
 Source key: `bde_mortgage_market`.
 
-Se incorporan dos tablas mensuales de Banco de España:
+Se incorporan tres tablas mensuales de Banco de España:
 
+- `be1904.csv`: TEDR total y con fijación inicial hasta un año;
 - `be1906.csv`: TAE de nuevas operaciones; para vivienda se publica como
   `mortgage_new_business_aprc_pct`.
 - `be1912.csv`: importe de nuevas operaciones; el total de vivienda se publica como
   `mortgage_new_business_volume_million_eur`.
 
-La TAE (`APRC`) incluye gastos en su definición y es más representativa para la
-experiencia del comprador que observar únicamente el Euríbor. El importe se conserva en
+El TEDR excluye gastos conexos y sirve de referencia de tipo efectivo del mercado. La TAE
+(`APRC`) incorpora gastos y sirve para comparar el coste de ofertas, pero no se usa como
+TIN para calcular una cuota. El importe se conserva en
 millones de euros, sin dividirlo por el número de hipotecas del INE porque ambas fuentes
 tienen definiciones estadísticas distintas.
 
@@ -81,5 +83,5 @@ para `ine_household_income`.
 para `bde_mortgage_market`.
 
 Ambas fuentes soportan también `date_from` y `date_to`. La fuente del Banco de España
-permite sobrescribir `aprc_url` y `volume_url` para pruebas o para una edición alternativa
+permite sobrescribir `aprc_url`, `volume_url` y `tedr_url` para pruebas controladas
 sin cambiar código.

@@ -23,6 +23,11 @@ def test_maps_ccaa_geography() -> None:
 def test_maps_categories() -> None:
     assert _category("48 Bizkaia; Viviendas: Total") == "housing_sales_total"
     assert _category("48 Bizkaia; Vivienda usada") == "housing_sales_used"
+    assert _category("León. General. Compraventa. Número.") == "housing_sales_total"
+    assert (
+        _category("León. Vivienda segunda mano. Compraventa. Número.")
+        == "housing_sales_used"
+    )
 
 
 def test_parses_monthly_period_variants() -> None:

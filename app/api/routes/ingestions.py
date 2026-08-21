@@ -63,7 +63,11 @@ async def trigger(
     )
 
 
-@router.get("/runs", response_model=list[IngestionRunResponse])
+@router.get(
+    "/runs",
+    response_model=list[IngestionRunResponse],
+    dependencies=[Depends(verify_api_key)],
+)
 async def runs(
     limit: int = Query(100, ge=1, le=500),
     session: AsyncSession = Depends(get_session),

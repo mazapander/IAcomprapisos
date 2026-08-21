@@ -23,6 +23,30 @@ logging.getLogger("app").setLevel(getattr(logging, settings.log_level.upper(), l
 logger = logging.getLogger(__name__)
 logger.info("Application starting name=%s env=%s log_level=%s", settings.app_name, settings.app_env, settings.log_level)
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+production = settings.app_env.strip().lower() == "production"
+app = FastAPI(
+    title=settings.app_name,
+    version="0.1.0",
+    docs_url=None if production else "/docs",
+    redoc_url=None if production else "/redoc",
+    openapi_url=None if production else "/openapi.json",
+)
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; "
+        "frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+    )
+    if production:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
 app.include_router(api_router, prefix="/api/v1")
 app.mount("/", StaticFiles(directory="app/web", html=True), name="web")

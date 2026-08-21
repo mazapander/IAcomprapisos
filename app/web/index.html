@@ -21,7 +21,9 @@
       <label>Ahorros disponibles (€)<input name="savings_eur" type="number" min="0" value="70000" required></label>
       <label>Renta neta hogar (€/año)<input name="annual_net_household_income_eur" type="number" min="1" value="42000" required></label>
       <label>Importe hipoteca (€)<input name="mortgage_amount_eur" type="number" min="1" value="200000" required></label>
-      <label>TAE de la oferta (%)<input name="annual_apr_pct" type="number" min="0" max="30" step="0.01" value="2.94" required></label>
+      <label>Tipo de hipoteca <select name="rate_type"><option value="fixed">Fija</option><option value="variable">Variable</option></select></label>
+      <label>TIN de la oferta (%)<input name="annual_nominal_rate_pct" type="number" min="0" max="30" step="0.01" value="2.75" required></label>
+      <label>TAE de la oferta (%)<input name="annual_apr_pct" type="number" min="0" max="30" step="0.01" value="2.94"></label>
       <label>Plazo (años)<input name="term_years" type="number" min="1" max="50" value="25" required></label>
       <label>Otras deudas (€/mes)<input name="existing_monthly_debt_eur" type="number" min="0" value="0"></label>
       <label>Gastos de vida (€/mes)<input name="monthly_living_costs_eur" type="number" min="0" value="1400"></label>
@@ -89,6 +91,7 @@
       price_eur_m2: 'Precio', annual_household_net_income_eur: 'Renta neta hogar',
       salary_income_weight_pct: 'Peso salarios', mortgages_yoy_pct: 'Hipotecas interanual',
       new_mortgage_apr_pct: 'TAE nuevas hipotecas', new_financing_volume_eur: 'Financiación nueva',
+      new_mortgage_tedr_pct: 'TEDR nuevas hipotecas',
       euribor_12m_pct: 'Euríbor 12 meses', estimated_purchase_effort_pct: 'Esfuerzo estimado',
       mortgage_spread_pp: 'Spread hipotecario', price_to_income_years: 'Price-to-income',
       price_to_rent_years: 'Price-to-rent', income_adjusted_price_yoy_pct: 'Precio ajustado por renta',
@@ -145,8 +148,10 @@
       const marketForm = new FormData($('#market-filters'));
       let market = null;
       try { market = await get(`${api}/markets/${encodeURIComponent(marketForm.get('geography_code').trim())}/summary`); } catch (_) { /* El cálculo personal sigue disponible sin benchmark. */ }
-      const numeric = ['property_price_eur','savings_eur','annual_net_household_income_eur','mortgage_amount_eur','annual_apr_pct','term_years','existing_monthly_debt_eur','monthly_living_costs_eur','purchase_cost_pct'];
+      const numeric = ['property_price_eur','savings_eur','annual_net_household_income_eur','mortgage_amount_eur','annual_nominal_rate_pct','term_years','existing_monthly_debt_eur','monthly_living_costs_eur','purchase_cost_pct'];
       const payload = Object.fromEntries(numeric.map(key => [key, Number(form.get(key) || 0)]));
+      payload.rate_type = form.get('rate_type');
+      if (form.get('annual_apr_pct')) payload.annual_apr_pct = Number(form.get('annual_apr_pct'));
       if (market?.market_card.new_mortgage_apr_pct.value != null) payload.market_apr_pct = market.market_card.new_mortgage_apr_pct.value;
       if (market?.market_card.euribor_12m_pct.value != null) payload.euribor_pct = market.market_card.euribor_12m_pct.value;
       const response = await fetch(`${api}/mortgages/review`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});

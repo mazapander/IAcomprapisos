@@ -7,11 +7,13 @@ import httpx
 
 from app.core.config import settings
 from app.ingestion.base import BaseIngestion, IndicatorValue, SourceRecord
+from app.ingestion.security import validate_source_url
 from app.ingestion.sources.bde_euribor import (
     _fold,
     _parse_decimal,
     _parse_period,
     _read_rows,
+    decode_bde_csv,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,9 @@ BDE_MORTGAGE_APRC_CSV = (
 BDE_MORTGAGE_VOLUME_CSV = (
     "https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/be1912.csv"
 )
+BDE_MORTGAGE_TEDR_CSV = (
+    "https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/be1904.csv"
+)
 
 _METADATA_KEYS = {
     "alias de la serie": "series_alias",
@@ -34,6 +39,27 @@ _METADATA_KEYS = {
     "descripcion de las unidades": "unit_description",
     "frecuencia": "frequency_description",
 }
+
+_EXPECTED_SERIES_ALIASES = {
+    "mortgage_new_business_aprc_pct": "BE_19_6.1",
+    "mortgage_new_business_volume_million_eur": "BE_19_12.2",
+    "mortgage_new_business_tedr_pct": "BE_19_4.2",
+    "mortgage_new_business_tedr_up_to_1y_pct": "BE_19_4.3",
+}
+
+
+def validate_bde_series_identity(
+    observations: list[tuple[date, Decimal, dict[str, Any]]],
+    indicator_code: str,
+) -> None:
+    """Fail closed when Banco de España reorders or replaces a table series."""
+    expected = _EXPECTED_SERIES_ALIASES[indicator_code]
+    aliases = {metadata.get("series_alias") for _, _, metadata in observations}
+    if aliases != {expected}:
+        raise ValueError(
+            f"Unexpected Banco de España series for {indicator_code}: "
+            f"expected {expected}, received {sorted(str(alias) for alias in aliases)}"
+        )
 
 
 def parse_bde_table_series(
@@ -86,8 +112,7 @@ def parse_bde_table_series(
 async def _fetch_csv(client: httpx.AsyncClient, url: str) -> tuple[str, httpx.Response]:
     response = await client.get(url)
     response.raise_for_status()
-    encoding = response.encoding or "utf-8"
-    content = response.content.decode(encoding, errors="replace").lstrip("\ufeff")
+    content = decode_bde_csv(response.content)
     return content, response
 
 
@@ -105,6 +130,9 @@ class BDEMortgageMarketIngestion(BaseIngestion):
     async def extract(self, parameters: dict[str, Any]) -> list[SourceRecord]:
         aprc_url = parameters.get("aprc_url", BDE_MORTGAGE_APRC_CSV)
         volume_url = parameters.get("volume_url", BDE_MORTGAGE_VOLUME_CSV)
+        tedr_url = parameters.get("tedr_url", BDE_MORTGAGE_TEDR_CSV)
+        for url in (aprc_url, volume_url, tedr_url):
+            validate_source_url(url)
 
         async with httpx.AsyncClient(
             timeout=settings.http_timeout_seconds,
@@ -112,12 +140,25 @@ class BDEMortgageMarketIngestion(BaseIngestion):
         ) as client:
             aprc_content, aprc_response = await _fetch_csv(client, aprc_url)
             volume_content, volume_response = await _fetch_csv(client, volume_url)
+            tedr_content, tedr_response = await _fetch_csv(client, tedr_url)
 
         # Table 19.6: housing is the first numeric series.
         aprc_observations = parse_bde_table_series(aprc_content, series_index=0)
         # Table 19.12: housing total is the second numeric series, after overdrafts/
         # revolving-credit facilities.
         volume_observations = parse_bde_table_series(volume_content, series_index=1)
+        # Table 19.4: after overdrafts/credit lines, housing total and housing with
+        # an initial rate-fixation period up to one year are columns 2 and 3.
+        tedr_total_observations = parse_bde_table_series(tedr_content, series_index=1)
+        tedr_variable_observations = parse_bde_table_series(tedr_content, series_index=2)
+
+        for observations, indicator_code in (
+            (aprc_observations, "mortgage_new_business_aprc_pct"),
+            (volume_observations, "mortgage_new_business_volume_million_eur"),
+            (tedr_total_observations, "mortgage_new_business_tedr_pct"),
+            (tedr_variable_observations, "mortgage_new_business_tedr_up_to_1y_pct"),
+        ):
+            validate_bde_series_identity(observations, indicator_code)
 
         retrieved_at = datetime.now(UTC)
         date_from = (
@@ -146,6 +187,20 @@ class BDEMortgageMarketIngestion(BaseIngestion):
                 "bde_be1912_mortgage_volume",
                 "mortgage_new_business_volume_million_eur",
                 "million_eur",
+            ),
+            (
+                tedr_total_observations,
+                tedr_response,
+                "bde_be1904_mortgage_tedr_total",
+                "mortgage_new_business_tedr_pct",
+                "percent",
+            ),
+            (
+                tedr_variable_observations,
+                tedr_response,
+                "bde_be1904_mortgage_tedr_up_to_1y",
+                "mortgage_new_business_tedr_up_to_1y_pct",
+                "percent",
             ),
         )
 
@@ -183,9 +238,10 @@ class BDEMortgageMarketIngestion(BaseIngestion):
                 )
 
         logger.info(
-            "Banco de España mortgage market parsed aprc=%d volume=%d records=%d",
+            "Banco de España mortgage market parsed aprc=%d volume=%d tedr=%d records=%d",
             len(aprc_observations),
             len(volume_observations),
+            len(tedr_total_observations) + len(tedr_variable_observations),
             len(records),
         )
         return records

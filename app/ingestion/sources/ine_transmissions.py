@@ -16,8 +16,10 @@ INE_TABLE_URL = "https://www.ine.es/jaxiT3/Tabla.htm?t=6150"
 INE_API_URL = "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/6150"
 
 INDICATOR_BY_CATEGORY = {
+    ". general.": "housing_sales_total",
     "viviendas: total": "housing_sales_total",
     "vivienda nueva": "housing_sales_new",
+    "vivienda segunda mano": "housing_sales_used",
     "vivienda usada": "housing_sales_used",
     "vivienda libre": "housing_sales_free_market",
     "vivienda protegida": "housing_sales_protected",

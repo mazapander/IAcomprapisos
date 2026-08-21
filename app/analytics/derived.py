@@ -140,6 +140,8 @@ INDICATOR_ALIASES: dict[str, tuple[str, ...]] = {
         "mortgage_new_business_apr_pct",
         "mortgage_interest_rate_pct",
     ),
+    "mortgage_tedr": ("mortgage_new_business_tedr_pct",),
+    "mortgage_tedr_variable": ("mortgage_new_business_tedr_up_to_1y_pct",),
     "euribor": ("euribor_12m_pct",),
     "rent_m2": ("rent_price_median_eur_m2", "rent_price_eur_m2"),
 }
@@ -174,8 +176,7 @@ def _previous_year(series: list[ObservationPoint]) -> ObservationPoint | None:
         return None
     latest = series[-1]
     target = date(latest.period.year - 1, latest.period.month, 1)
-    candidates = [row for row in series[:-1] if abs((row.period - target).days) <= 190]
-    return min(candidates, key=lambda row: abs((row.period - target).days)) if candidates else None
+    return next((row for row in reversed(series[:-1]) if row.period == target), None)
 
 
 def _latest_at_or_before(series: list[ObservationPoint], period: date) -> ObservationPoint | None:
@@ -225,9 +226,11 @@ def build_market_summary(
             financing_value *= 1_000_000
 
     apr = latest["mortgage_apr"]
+    tedr = latest["mortgage_tedr"]
+    variable_tedr = latest["mortgage_tedr_variable"]
     euribor = latest["euribor"]
-    rate_for_effort = apr.value if apr else None
-    rate_basis = "observed_apr"
+    rate_for_effort = tedr.value if tedr else None
+    rate_basis = "observed_tedr"
     if rate_for_effort is None and euribor:
         rate_for_effort = euribor.value + assumptions.fallback_mortgage_spread_pp
         rate_basis = "euribor_plus_assumed_spread"
@@ -253,18 +256,27 @@ def build_market_summary(
         else None
     )
     price_rent = price_to_rent_years(price.value, rent.value) if price and rent else None
-    spread = mortgage_spread_pp(apr.value, euribor.value) if apr and euribor else None
+    spread = (
+        mortgage_spread_pp(variable_tedr.value, euribor.value)
+        if variable_tedr and euribor
+        else None
+    )
 
-    price_previous = _previous_year(series["price"])
     income_previous = _previous_year(series["income"])
+    aligned_price = _latest_at_or_before(series["price"], income.period) if income else None
+    price_previous = (
+        _latest_at_or_before(series["price"], income_previous.period)
+        if income_previous
+        else None
+    )
     adjusted_change = (
         income_adjusted_price_change_pct(
-            price.value,
+            aligned_price.value,
             price_previous.value,
             income.value,
             income_previous.value,
         )
-        if price and price_previous and income and income_previous
+        if aligned_price and price_previous and income and income_previous
         else None
     )
 
@@ -292,6 +304,7 @@ def build_market_summary(
         latest["salary_share"],
         latest["mortgages"],
         apr,
+        tedr,
         financing,
         euribor,
     ]
@@ -317,6 +330,7 @@ def build_market_summary(
                 [latest["mortgages"].indicator_code] if latest["mortgages"] else [],
             ),
             "new_mortgage_apr_pct": _metric(apr),
+            "new_mortgage_tedr_pct": _metric(tedr),
             "new_financing_volume_eur": _metric(financing, financing_value),
             "euribor_12m_pct": _metric(euribor),
             "estimated_purchase_effort_pct": _derived_metric(
@@ -327,8 +341,8 @@ def build_market_summary(
                     for code in [
                         price.indicator_code if price else None,
                         income.indicator_code if income else None,
-                        apr.indicator_code
-                        if apr
+                        tedr.indicator_code
+                        if tedr
                         else (euribor.indicator_code if euribor else None),
                     ]
                     if code
@@ -342,7 +356,7 @@ def build_market_summary(
                 [
                     code
                     for code in [
-                        apr.indicator_code if apr else None,
+                        variable_tedr.indicator_code if variable_tedr else None,
                         euribor.indicator_code if euribor else None,
                     ]
                     if code
@@ -388,20 +402,25 @@ def build_market_summary(
                 "price": rounded(
                     percentile_rank(price.value, (row.value for row in series["price"]))
                 )
-                if price
+                if price and len(series["price"]) >= 8
                 else None,
                 "price_to_income": rounded(percentile_rank(price_income, price_income_history))
-                if price_income is not None
+                if price_income is not None and len(price_income_history) >= 8
                 else None,
                 "price_to_rent": rounded(percentile_rank(price_rent, price_rent_history))
-                if price_rent is not None
+                if price_rent is not None and len(price_rent_history) >= 8
                 else None,
+                "sample_sizes": {
+                    "price": len(series["price"]),
+                    "price_to_income": len(price_income_history),
+                    "price_to_rent": len(price_rent_history),
+                },
             },
         },
         "coverage": {
             "available_fields": available,
-            "total_fields": 8,
-            "ratio_pct": rounded(Decimal(available) / Decimal(8) * 100),
+            "total_fields": 9,
+            "ratio_pct": rounded(Decimal(available) / Decimal(9) * 100),
             "missing_inputs": missing,
         },
     }

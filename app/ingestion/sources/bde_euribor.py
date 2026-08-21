@@ -10,11 +10,13 @@ import httpx
 
 from app.core.config import settings
 from app.ingestion.base import BaseIngestion, IndicatorValue, SourceRecord
+from app.ingestion.security import validate_source_url
 
 logger = logging.getLogger(__name__)
 
 BDE_REFERENCE_RATES_PAGE = "https://www.bde.es/webbe/es/estadisticas/temas/tipos-interes.html"
 BDE_REFERENCE_RATES_CSV = "https://www.bde.es/webbe/es/estadisticas/compartido/datos/csv/be1901.csv"
+EURIBOR_12M_SERIES_CODE = "D_1NBAF472"
 
 MONTHS = {
     "ene": 1, "enero": 1, "jan": 1,
@@ -85,9 +87,21 @@ def _read_rows(content: str) -> list[list[str]]:
     ]
 
 
+def decode_bde_csv(content: bytes) -> str:
+    """Decode BDE CSV metadata without silently replacing accented labels."""
+    for encoding in ("utf-8-sig", "cp1252"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise ValueError("Banco de España CSV uses an unsupported encoding")
+
+
 def _find_named_euribor_column(rows: list[list[str]]) -> tuple[int, int] | None:
     for row_index, row in enumerate(rows):
         for column_index, cell in enumerate(row):
+            if cell.strip().upper() == EURIBOR_12M_SERIES_CODE:
+                return row_index, column_index
             folded = _fold(cell)
             if "euribor" in folded and any(
                 label in folded for label in ("un ano", "12 meses", "1 ano", "a 12 meses")
@@ -134,13 +148,8 @@ def parse_bde_euribor_csv(content: str) -> list[tuple[date, Decimal, dict[str, A
         data_start = header_index + 1
         date_column_hint: int | None = None
     else:
-        first_data_row, date_column_hint, value_column = _find_date_and_value_columns(rows)
-        header_index = max(0, first_data_row - 1)
-        data_start = first_data_row
-        logger.info(
-            "BDE Euribor parser using dedicated-series fallback date_column=%d value_column=%d",
-            date_column_hint,
-            value_column,
+        raise ValueError(
+            "The official 12-month Euribor series could not be identified by code or description"
         )
 
     result: list[tuple[date, Decimal, dict[str, Any]]] = []
@@ -191,6 +200,7 @@ class BDEEuriborIngestion(BaseIngestion):
 
     async def extract(self, parameters: dict[str, Any]) -> list[SourceRecord]:
         url = parameters.get("url", BDE_REFERENCE_RATES_CSV)
+        validate_source_url(url)
         logger.info("Fetching Banco de España Euribor url=%s", url)
         async with httpx.AsyncClient(
             timeout=settings.http_timeout_seconds,
@@ -198,7 +208,7 @@ class BDEEuriborIngestion(BaseIngestion):
         ) as client:
             response = await client.get(url)
             response.raise_for_status()
-            content = response.content.decode(response.encoding or "utf-8", errors="replace").lstrip("\ufeff")
+            content = decode_bde_csv(response.content)
 
         retrieved_at = datetime.now(UTC)
         observations = parse_bde_euribor_csv(content)

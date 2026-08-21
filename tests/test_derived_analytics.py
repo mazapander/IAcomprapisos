@@ -45,6 +45,8 @@ def test_market_summary_builds_card_and_product_analytics() -> None:
         ),
         point("rent_price_median_eur_m2", date(2024, 1, 1), "9.5", "eur_m2_month"),
         point("mortgage_new_business_aprc_pct", date(2025, 6, 1), "2.94", "percent", "ES"),
+        point("mortgage_new_business_tedr_pct", date(2025, 6, 1), "2.75", "percent", "ES"),
+        point("mortgage_new_business_tedr_up_to_1y_pct", date(2025, 6, 1), "2.90", "percent", "ES"),
         point("euribor_12m_pct", date(2025, 6, 1), "2.10", "percent", "ES"),
     ]
 
@@ -53,10 +55,19 @@ def test_market_summary_builds_card_and_product_analytics() -> None:
     assert result["market_card"]["price_eur_m2"]["value"] == Decimal("1850.00")
     assert result["market_card"]["mortgages_yoy_pct"]["value"] == Decimal("8.40")
     assert result["market_card"]["new_financing_volume_eur"]["value"] == Decimal("1234500000.00")
-    assert result["derived"]["mortgage_spread_pp"]["value"] == Decimal("0.84")
+    assert result["derived"]["mortgage_spread_pp"]["value"] == Decimal("0.80")
     assert result["derived"]["price_to_income_years"]["value"] == Decimal("5.14")
     assert result["derived"]["price_to_rent_years"]["value"] == Decimal("16.23")
-    assert result["coverage"]["available_fields"] == 8
+    assert result["coverage"]["available_fields"] == 9
+
+
+def test_year_on_year_does_not_pair_different_months() -> None:
+    rows = [
+        point("mortgages_housing_total", date(2024, 1, 1), "100", "mortgages"),
+        point("mortgages_housing_total", date(2025, 6, 1), "110", "mortgages"),
+    ]
+    result = build_market_summary(rows, "PROV:24", MarketAssumptions())
+    assert result["market_card"]["mortgages_yoy_pct"]["value"] is None
 
 
 def test_effort_uses_disclosed_euribor_fallback_when_apr_is_missing() -> None:

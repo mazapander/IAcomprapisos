@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from decimal import Decimal
 
 from app.analytics.derived import mortgage_payment, rounded
@@ -10,8 +10,10 @@ class MortgageScenario:
     savings_eur: Decimal
     annual_net_household_income_eur: Decimal
     mortgage_amount_eur: Decimal
-    annual_apr_pct: Decimal
+    annual_nominal_rate_pct: Decimal
     term_years: int
+    rate_type: str = "fixed"
+    annual_apr_pct: Decimal | None = None
     existing_monthly_debt_eur: Decimal = Decimal(0)
     monthly_living_costs_eur: Decimal = Decimal(0)
     purchase_cost_pct: Decimal = Decimal(10)
@@ -27,12 +29,17 @@ def _ratio_pct(numerator: Decimal, denominator: Decimal) -> Decimal | None:
 def review_mortgage(scenario: MortgageScenario) -> dict:
     monthly_payment = mortgage_payment(
         scenario.mortgage_amount_eur,
-        scenario.annual_apr_pct,
+        scenario.annual_nominal_rate_pct,
         scenario.term_years,
+    )
+    stressed_rate = (
+        scenario.annual_nominal_rate_pct + scenario.stress_rate_increase_pp
+        if scenario.rate_type == "variable"
+        else scenario.annual_nominal_rate_pct
     )
     stressed_payment = mortgage_payment(
         scenario.mortgage_amount_eur,
-        scenario.annual_apr_pct + scenario.stress_rate_increase_pp,
+        stressed_rate,
         scenario.term_years,
     )
     if monthly_payment is None or stressed_payment is None:
@@ -79,7 +86,7 @@ def review_mortgage(scenario: MortgageScenario) -> dict:
                 "message": "La cuota y las deudas superan el 35 % de la renta neta mensual.",
             }
         )
-    if stressed_effort is not None and stressed_effort > 40:
+    if scenario.rate_type == "variable" and stressed_effort is not None and stressed_effort > 40:
         alerts.append(
             {
                 "level": "critical" if stressed_effort > 45 else "warning",
@@ -123,17 +130,22 @@ def review_mortgage(scenario: MortgageScenario) -> dict:
             "total_repayment_eur": rounded(total_repayment),
             "total_interest_eur": rounded(total_repayment - scenario.mortgage_amount_eur),
             "mortgage_spread_pp": rounded(
-                scenario.annual_apr_pct - scenario.euribor_pct
-                if scenario.euribor_pct is not None
+                scenario.annual_nominal_rate_pct - scenario.euribor_pct
+                if scenario.rate_type == "variable" and scenario.euribor_pct is not None
                 else None
             ),
             "apr_vs_market_pp": rounded(
                 scenario.annual_apr_pct - scenario.market_apr_pct
-                if scenario.market_apr_pct is not None
+                if scenario.annual_apr_pct is not None and scenario.market_apr_pct is not None
                 else None
             ),
         },
-        "scenario": asdict(scenario),
+        "assumptions": {
+            "amortization_method": "french_monthly",
+            "rate_type": scenario.rate_type,
+            "stress_rate_increase_pp": scenario.stress_rate_increase_pp,
+            "interest_total_excludes_fees": True,
+        },
         "disclaimer": (
             "Orientación educativa basada en los datos aportados; no sustituye la FEIN, "
             "el asesoramiento financiero ni la evaluación de solvencia de la entidad."
