@@ -9,7 +9,8 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import IndicatorObservation, IngestionRun, RawSourceRecord
+from app.db.models import IndicatorDefinition, IndicatorObservation, IngestionRun, RawSourceRecord
+from app.ingestion.quality import validate_indicator_batch
 from app.ingestion.registry import get_ingestion
 
 logger = logging.getLogger(__name__)
@@ -183,6 +184,27 @@ async def execute_ingestion(
             await session.execute(stmt)
 
         indicators = job.transform(records)
+        validate_indicator_batch(indicators)
+        definitions = {
+            row.code: row
+            for row in (
+                await session.scalars(
+                    select(IndicatorDefinition).where(
+                        IndicatorDefinition.code.in_({item.indicator_code for item in indicators})
+                    )
+                )
+            ).all()
+        }
+        for item in indicators:
+            definition = definitions.get(item.indicator_code)
+            if definition is None:
+                raise ValueError(f"Indicator is missing from catalog: {item.indicator_code}")
+            if definition.source != source or definition.unit != item.unit:
+                raise ValueError(
+                    f"Indicator contract mismatch for {item.indicator_code}: "
+                    f"expected source={definition.source} unit={definition.unit}, "
+                    f"received source={source} unit={item.unit}"
+                )
         logger.info(
             "Ingestion transform completed source=%s run_id=%s rows_to_write=%d",
             source,

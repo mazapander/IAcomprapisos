@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Any
 
 from app.ingestion.base import BaseIngestion, IndicatorValue, SourceRecord
+from app.ingestion.security import validate_source_url
 from app.ingestion.sources.mivau_tabular import decimal_value, download_rows, geography, period_value, pick
 
 
@@ -12,6 +13,7 @@ class MIVAURentIngestion(BaseIngestion):
         url = parameters.get("url")
         if not url:
             raise ValueError("mivau_rent requires parameters.url pointing to the official SERPAVI CSV/XLSX release")
+        validate_source_url(url)
         rows, metadata = await download_rows(url, parameters.get("sheet_name"))
         level = parameters.get("geographic_level", "municipality")
         records: list[SourceRecord] = []

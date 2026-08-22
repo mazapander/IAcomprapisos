@@ -6,6 +6,7 @@ from app.ingestion.registry import available_sources
 from app.ingestion.sources.bde_mortgage_market import (
     BDEMortgageMarketIngestion,
     parse_bde_table_series,
+    validate_bde_series_identity,
 )
 from app.ingestion.sources.ine_common import parse_period
 from app.ingestion.sources.ine_income import INEHouseholdIncomeIngestion
@@ -77,6 +78,17 @@ JUN 2026;1200;8088
     assert volume[-1][2]["series_alias"] == "Vivienda total"
 
 
+def test_bde_series_identity_fails_closed_if_upstream_columns_change() -> None:
+    observations = [(date(2026, 6, 1), Decimal("2.94"), {"series_alias": "BE_19_6.2"})]
+
+    try:
+        validate_bde_series_identity(observations, "mortgage_new_business_aprc_pct")
+    except ValueError as exc:
+        assert "expected BE_19_6.1" in str(exc)
+    else:
+        raise AssertionError("A changed Banco de España series must be rejected")
+
+
 def test_bde_mortgage_market_transformation_preserves_mir_caveat() -> None:
     records = [
         SourceRecord(
@@ -103,6 +115,18 @@ def test_bde_mortgage_market_transformation_preserves_mir_caveat() -> None:
                 "series_metadata": {"series_alias": "Vivienda total"},
             },
         ),
+        SourceRecord(
+            dataset="bde_be1904_mortgage_tedr_total",
+            period=date(2026, 6, 1),
+            geography_code="ES",
+            payload={
+                "indicator_code": "mortgage_new_business_tedr_pct",
+                "value": "2.89",
+                "unit": "percent",
+                "download_url": "https://example.test/be1904.csv",
+                "series_metadata": {"series_alias": "Vivienda tipo medio ponderado"},
+            },
+        ),
     ]
 
     result = BDEMortgageMarketIngestion().transform(records)
@@ -112,6 +136,7 @@ def test_bde_mortgage_market_transformation_preserves_mir_caveat() -> None:
     assert by_code["mortgage_new_business_volume_million_eur"].value == Decimal(
         "8088"
     )
+    assert by_code["mortgage_new_business_tedr_pct"].value == Decimal("2.89")
     assert all(item.metadata["includes_renegotiations"] is True for item in result)
 
 

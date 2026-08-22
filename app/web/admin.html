@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Métricas · IA Compra Pisos</title>
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+    body { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+    form { display: flex; gap: .7rem; flex-wrap: wrap; align-items: end; }
+    label { display: grid; gap: .3rem; } input, button { font: inherit; padding: .55rem .7rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .8rem; margin: 1rem 0 2rem; }
+    article { padding: 1rem; border: 1px solid #8886; border-radius: .7rem; }
+    article strong { display: block; font-size: 1.7rem; margin-top: .35rem; }
+    table { width: 100%; border-collapse: collapse; } th, td { padding: .65rem; border-bottom: 1px solid #8885; text-align: left; vertical-align: top; }
+    .error { color: #c33; } .muted { color: #777; }
+  </style>
+</head>
+<body>
+  <h1>Métricas de producto</h1>
+  <p class="muted">Panel interno. La clave se conserva solo durante esta pestaña.</p>
+  <form id="access">
+    <label>Clave de administración <input name="api_key" type="password" required autocomplete="current-password"></label>
+    <label>Periodo (días) <input name="days" type="number" min="1" max="365" value="30"></label>
+    <button>Cargar métricas</button>
+  </form>
+  <p id="status" aria-live="polite"></p>
+  <div id="metrics" class="cards"></div>
+  <h2>Dudas recibidas</h2>
+  <table>
+    <thead><tr><th>Fecha</th><th>Etapa</th><th>Categoría</th><th>Duda</th><th>Contacto</th></tr></thead>
+    <tbody id="questions"></tbody>
+  </table>
+  <script>
+    const $ = selector => document.querySelector(selector);
+    const load = async event => {
+      event.preventDefault(); const form = new FormData(event.currentTarget); const key = form.get('api_key'); const days = form.get('days');
+      sessionStorage.setItem('iacomprapisos.adminKey', key); $('#status').textContent = 'Cargando…';
+      try {
+        const headers = {'X-API-Key':key};
+        const [metricsResponse, questionsResponse] = await Promise.all([fetch(`/api/v1/product/admin/metrics?days=${days}`, {headers}), fetch('/api/v1/product/admin/questions?limit=100', {headers})]);
+        if (!metricsResponse.ok || !questionsResponse.ok) throw Error('Acceso denegado o servicio no disponible');
+        const metrics = await metricsResponse.json(); const questions = await questionsResponse.json();
+        const cards = {Visitantes:metrics.unique_visitors, 'Análisis iniciados':metrics.events.review_started || 0, 'Análisis terminados':metrics.events.review_completed || 0, 'Conversión':metrics.review_completion_pct == null ? 'N/D' : `${metrics.review_completion_pct} %`, Dudas:metrics.questions};
+        $('#metrics').replaceChildren(...Object.entries(cards).map(([label,value]) => { const node = document.createElement('article'); const title = document.createElement('span'); title.textContent = label; const strong = document.createElement('strong'); strong.textContent = value; node.append(title,strong); return node; }));
+        $('#questions').replaceChildren(...questions.map(question => { const row = document.createElement('tr'); [new Date(question.created_at).toLocaleString('es-ES'), question.journey_stage, question.category, question.question, question.contact_email || '—'].forEach(value => { const cell = document.createElement('td'); cell.textContent = value; row.append(cell); }); return row; }));
+        $('#status').textContent = `Datos de los últimos ${metrics.period_days} días.`;
+      } catch (error) { $('#status').className = 'error'; $('#status').textContent = error.message; }
+    };
+    $('#access').onsubmit = load;
+    const savedKey = sessionStorage.getItem('iacomprapisos.adminKey'); if (savedKey) $('#access [name="api_key"]').value = savedKey;
+  </script>
+</body>
+</html>

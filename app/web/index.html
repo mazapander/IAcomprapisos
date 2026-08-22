@@ -6,65 +6,184 @@
   <title>IA Compra Pisos</title>
   <style>
     :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
-    body { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; } h1 { margin-bottom: 0; } section { margin: 2rem 0; } form, .actions { display: flex; gap: .6rem; flex-wrap: wrap; align-items: end; } label { display: grid; gap: .25rem; } input, select, button { font: inherit; padding: .45rem .6rem; } button { cursor: pointer; } table { width: 100%; border-collapse: collapse; margin-top: .8rem; } th, td { text-align: left; padding: .5rem; border-bottom: 1px solid #8885; vertical-align: top; } .error { color: #c22; } .muted { color: #777; } @media (max-width: 700px) { body { margin-top: 1rem; } table { font-size: .85rem; } .scroll { overflow-x: auto; } }
+    body { max-width: 1200px; margin: 2rem auto; padding: 0 1rem 7rem; } h1 { margin-bottom: 0; } section { margin: 2.5rem 0; } form, .actions { display: flex; gap: .8rem; flex-wrap: wrap; align-items: end; } label { display: grid; gap: .25rem; min-width: 150px; } input, select, textarea, button { font: inherit; padding: .55rem .7rem; } textarea { width: min(100%, 720px); min-height: 7rem; } button { cursor: pointer; } .hero { max-width: 760px; font-size: 1.08rem; } .error { color: #c22; } .success { color: #287446; } .muted { color: #777; } .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin-top: 1rem; } .metric { border: 1px solid #8885; border-radius: .7rem; padding: .9rem; background: #8881; } .metric strong { display: block; font-size: 1.35rem; margin: .3rem 0; } .metric small { color: #777; } .coverage, .assessment, .privacy { margin-top: 1rem; padding: .9rem; border-left: 4px solid #568bd8; background: #568bd812; } .assessment[data-status="high_risk"] { border-color: #c33; } .assessment[data-status="review"] { border-color: #d89222; } .alerts { margin: .5rem 0 0; padding-left: 1.2rem; } .privacy { border-color: #4a9b69; } .wide { flex: 1 1 230px; } .stack { display: grid; gap: .7rem; align-items: start; } .consent { position: fixed; inset: auto 1rem 1rem; max-width: 760px; margin: auto; z-index: 5; padding: 1rem; border: 1px solid #7778; border-radius: .8rem; background: Canvas; box-shadow: 0 .5rem 2rem #0004; } .consent p { margin-top: 0; } .consent .actions button { min-width: 10rem; } @media (max-width: 700px) { body { margin-top: 1rem; } label { width: 100%; } .consent { inset-inline: .5rem; } }
   </style>
 </head>
 <body>
   <h1>IA Compra Pisos</h1>
-  <p class="muted">Consulta de ingestas e indicadores.</p>
+  <p class="hero">Revisa una hipoteca con tus números reales y compárala con el mercado de vivienda y financiación. Sin entregar tus datos financieros a una red publicitaria.</p>
 
   <section>
-    <form id="filters">
-      <label>Indicador <input name="indicator_code" placeholder="Ej. ine_transmissions"></label>
-      <label>Geografía <input name="geography_code" placeholder="Ej. ES"></label>
-      <label>Desde <input name="date_from" type="date"></label>
-      <label>Hasta <input name="date_to" type="date"></label>
-      <button>Buscar datos</button>
+    <h2>¿Esta hipoteca encaja en tu vida?</h2>
+    <p class="muted">Calculamos cuota, esfuerzo, entrada, colchón, coste total y qué ocurriría con dos puntos más de interés.</p>
+    <form id="mortgage-review" autocomplete="off">
+      <label>Precio vivienda (€)<input name="property_price_eur" type="number" min="1" value="250000" required></label>
+      <label>Ahorros disponibles (€)<input name="savings_eur" type="number" min="0" value="70000" required></label>
+      <label>Renta neta hogar (€/año)<input name="annual_net_household_income_eur" type="number" min="1" value="42000" required></label>
+      <label>Importe hipoteca (€)<input name="mortgage_amount_eur" type="number" min="1" value="200000" required></label>
+      <label>Tipo de hipoteca <select name="rate_type"><option value="fixed">Fija</option><option value="variable">Variable</option></select></label>
+      <label>TIN de la oferta (%)<input name="annual_nominal_rate_pct" type="number" min="0" max="30" step="0.01" value="2.75" required></label>
+      <label>TAE de la oferta (%)<input name="annual_apr_pct" type="number" min="0" max="30" step="0.01" value="2.94"></label>
+      <label>Plazo (años)<input name="term_years" type="number" min="1" max="50" value="25" required></label>
+      <label>Otras deudas (€/mes)<input name="existing_monthly_debt_eur" type="number" min="0" value="0"></label>
+      <label>Gastos de vida (€/mes)<input name="monthly_living_costs_eur" type="number" min="0" value="1400"></label>
+      <label>Impuestos y gastos (%)<input name="purchase_cost_pct" type="number" min="0" max="30" step="0.1" value="10"></label>
+      <label class="wide"><input name="save_local" type="checkbox"> Guardar este escenario únicamente en este dispositivo</label>
+      <button>Revisar mi hipoteca</button>
     </form>
-    <div class="actions"><button id="latest">Último dato por serie</button><button id="catalog">Catálogo</button></div>
-    <p id="summary" class="muted"></p>
-    <div class="scroll"><table id="data"><thead></thead><tbody></tbody></table></div>
+    <div id="assessment" class="assessment" hidden></div>
+    <div id="mortgage-results" class="card-grid"></div>
+    <div class="privacy"><strong>Privacidad por defecto.</strong> Tus importes se usan para calcular la respuesta y no se guardan en el servidor. Con permiso, medimos únicamente eventos de uso y resultados por tramos; nunca renta, ahorro, deuda, precio, dirección ni datos bancarios. <button id="forget" type="button">Borrar escenario local</button> <button id="privacy-settings" type="button">Preferencias de medición</button></div>
   </section>
 
   <section>
-    <h2>Ingestas</h2>
-    <div class="actions"><button id="runs">Actualizar ejecuciones</button></div>
-    <div class="scroll"><table id="run-data"><thead></thead><tbody></tbody></table></div>
-    <h3>Lanzar ingesta</h3>
-    <form id="ingest">
-      <label>Fuente <select name="source" id="source"></select></label>
-      <label>Clave API <input name="api_key" type="password" autocomplete="off"></label>
-      <label>Desde <input name="date_from" type="date"></label>
-      <button>Ejecutar</button>
+    <h2>¿Qué duda te queda?</h2>
+    <p class="muted">Cuéntanos qué no está claro. Guardaremos el texto para mejorar el servicio; no incluyas DNI, cuenta bancaria ni documentación privada.</p>
+    <form id="question-form" class="stack">
+      <label>Tipo de duda <select name="category"><option value="affordability">Si puedo permitírmelo</option><option value="offer">Comparar una oferta</option><option value="costs">Entrada y gastos</option><option value="market">Mercado de la zona</option><option value="process">Proceso de compra</option><option value="other">Otra</option></select></label>
+      <label>Momento de compra <select name="journey_stage"><option value="exploring">Estoy explorando</option><option value="comparing">Estoy comparando</option><option value="offer_received">Tengo una oferta</option><option value="ready_to_sign">Voy a firmar</option></select></label>
+      <label class="wide">Tu duda <textarea name="question" minlength="5" maxlength="2000" required></textarea></label>
+      <label class="wide"><input name="privacy_notice_accepted" type="checkbox" required> Acepto que se guarde esta pregunta para analizarla y mejorar el servicio.</label>
+      <button>Enviar duda</button>
     </form>
-    <p id="message"></p>
+    <p id="question-status" aria-live="polite"></p>
   </section>
+
+  <section>
+    <h2 id="market-title">Ficha de mercado · León</h2>
+    <form id="market-filters">
+      <label>Territorio <input name="geography_name" value="León" aria-label="Nombre del territorio"></label>
+      <label>Código <input name="geography_code" value="PROV:24" required aria-label="Código geográfico"></label>
+      <label>Vivienda tipo (m²) <input name="home_size_m2" type="number" min="1" value="90"></label>
+      <label>Financiación (%) <input name="ltv_pct" type="number" min="1" max="100" value="80"></label>
+      <label>Plazo (años) <input name="term_years" type="number" min="1" max="50" value="25"></label>
+      <button>Actualizar ficha</button>
+    </form>
+    <div id="market-card" class="card-grid"></div>
+    <h3>Analytics derivados</h3>
+    <div id="derived-card" class="card-grid"></div>
+    <div id="coverage" class="coverage muted">Cargando cobertura…</div>
+  </section>
+
+  <aside id="consent-banner" class="consent" hidden aria-label="Preferencias de medición">
+    <p><strong>Ayúdanos a mejorar.</strong> Con tu permiso usamos dos cookies propias para medir el embudo de uso. No guardamos tus cifras financieras ni usamos publicidad o seguimiento entre webs.</p>
+    <div class="actions"><button id="accept-analytics" type="button">Aceptar medición</button><button id="reject-analytics" type="button">Rechazar</button></div>
+  </aside>
 
   <script>
     const $ = s => document.querySelector(s);
     const api = '/api/v1';
-    const show = (table, rows) => {
-      const columns = [...new Set(rows.flatMap(Object.keys))];
-      table.querySelector('thead').innerHTML = `<tr>${columns.map(c => `<th>${c}</th>`).join('')}</tr>`;
-      table.querySelector('tbody').innerHTML = rows.map(row => `<tr>${columns.map(c => `<td>${row[c] ?? ''}</td>`).join('')}</tr>`).join('');
-    };
     const get = async url => { const r = await fetch(url); if (!r.ok) throw Error(await r.text()); return r.json(); };
-    const loadObservations = async (latest = false) => {
-      const params = new URLSearchParams(new FormData($('#filters'))); [...params.entries()].forEach(([k,v]) => !v && params.delete(k));
-      const result = await get(`${api}/analytics/${latest ? 'latest' : 'observations'}?${params}`);
-      const rows = result.data || result; show($('#data'), rows); $('#summary').textContent = `${rows.length} registros`;
+    const cookie = name => document.cookie.split('; ').find(row => row.startsWith(`${name}=`))?.split('=')[1];
+    const sessionId = sessionStorage.getItem('iacomprapisos.session') || crypto.randomUUID();
+    sessionStorage.setItem('iacomprapisos.session', sessionId);
+    const track = async (event_name, properties = {}) => {
+      if (cookie('iacp_consent') !== 'accepted') return;
+      try { await fetch(`${api}/product/events`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({event_name, session_id:sessionId, page_path:location.pathname, properties})}); } catch (_) { /* La medición nunca debe bloquear la herramienta. */ }
     };
-    $('#filters').onsubmit = async e => { e.preventDefault(); try { await loadObservations(); } catch (e) { $('#summary').textContent = e.message; } };
-    $('#latest').onclick = () => loadObservations(true).catch(e => $('#summary').textContent = e.message);
-    $('#catalog').onclick = async () => { const result = await get(`${api}/analytics/catalog`); show($('#data'), result.data); $('#summary').textContent = `${result.count} indicadores`; };
-    $('#runs').onclick = async () => { const rows = await get(`${api}/ingestions/runs`); show($('#run-data'), rows); };
-    $('#ingest').onsubmit = async e => {
-      e.preventDefault(); const form = new FormData(e.currentTarget); const parameters = form.get('date_from') ? {date_from: form.get('date_from')} : {};
-      const r = await fetch(`${api}/ingestions/${form.get('source')}`, {method:'POST', headers:{'Content-Type':'application/json','X-API-Key':form.get('api_key')}, body:JSON.stringify({requested_by:'web', parameters})});
-      $('#message').textContent = r.ok ? 'Ingesta terminada.' : `Error: ${await r.text()}`; $('#message').className = r.ok ? '' : 'error'; if (r.ok) $('#runs').click();
+    const setConsent = async choice => {
+      const response = await fetch(`${api}/product/consent`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({choice})});
+      if (!response.ok) throw Error(await response.text());
+      $('#consent-banner').hidden = true;
+      if (choice === 'accepted') track('page_view', {source:'direct'});
     };
-    get(`${api}/ingestions/sources`).then(({sources}) => { $('#source').innerHTML = sources.map(s => `<option>${s}</option>`).join(''); });
-    loadObservations().catch(e => $('#summary').textContent = e.message); $('#runs').click();
+    const marketLabels = {
+      price_eur_m2: 'Precio', annual_household_net_income_eur: 'Renta neta hogar',
+      salary_income_weight_pct: 'Peso salarios', mortgages_yoy_pct: 'Hipotecas interanual',
+      new_mortgage_apr_pct: 'TAE nuevas hipotecas', new_financing_volume_eur: 'Financiación nueva',
+      new_mortgage_tedr_pct: 'TEDR nuevas hipotecas',
+      euribor_12m_pct: 'Euríbor 12 meses', estimated_purchase_effort_pct: 'Esfuerzo estimado',
+      mortgage_spread_pp: 'Spread hipotecario', price_to_income_years: 'Price-to-income',
+      price_to_rent_years: 'Price-to-rent', income_adjusted_price_yoy_pct: 'Precio ajustado por renta',
+      monthly_payment_eur: 'Cuota mensual', stressed_monthly_payment_eur: 'Cuota con +2 puntos',
+      effort_pct: 'Esfuerzo actual', stressed_effort_pct: 'Esfuerzo con +2 puntos',
+      committed_income_pct: 'Renta comprometida', ltv_pct: 'Financiación sobre precio',
+      cash_required_eur: 'Entrada y gastos', remaining_savings_eur: 'Colchón restante',
+      emergency_buffer_months: 'Meses de colchón', total_interest_eur: 'Intereses totales',
+      mortgage_spread_pp: 'Spread sobre Euríbor', apr_vs_market_pp: 'TAE frente al mercado'
+    };
+    const number = (value, digits = 1) => new Intl.NumberFormat('es-ES', {maximumFractionDigits: digits, minimumFractionDigits: digits}).format(value);
+    const metricValue = (metric, key) => {
+      if (!metric || metric.value == null) return 'Sin dato';
+      if (metric.unit === 'eur_m2') return `${number(metric.value, 0)} €/m²`;
+      if (metric.unit === 'eur_year') return `${number(metric.value, 0)} €/año`;
+      if (metric.unit === 'eur') return `${number(metric.value, 0)} €`;
+      if (metric.unit === 'percent') {
+        const signed = ['mortgages_yoy_pct', 'income_adjusted_price_yoy_pct'].includes(key);
+        return `${signed && metric.value > 0 ? '+' : ''}${number(metric.value)} %`;
+      }
+      if (metric.unit === 'percentage_points') return `${number(metric.value, 2)} pp`;
+      if (metric.unit === 'years') return `${number(metric.value, 1)} años`;
+      if (metric.unit === 'months') return `${number(metric.value, 1)} meses`;
+      return number(metric.value);
+    };
+    const renderMetrics = (target, metrics) => {
+      target.innerHTML = '';
+      Object.entries(metrics).forEach(([key, metric]) => {
+        const card = document.createElement('article'); card.className = 'metric';
+        const label = document.createElement('span'); label.textContent = marketLabels[key] || key;
+        const value = document.createElement('strong'); value.textContent = metricValue(metric, key);
+        const detail = document.createElement('small');
+        detail.textContent = metric?.period ? `${metric.period} · ${metric.source || 'calculado'}` : (metric?.value == null ? 'Pendiente de cobertura' : 'Calculado por el backend');
+        card.append(label, value, detail); target.append(card);
+      });
+    };
+    const loadMarket = async (userInitiated = false) => {
+      const form = new FormData($('#market-filters')); const code = form.get('geography_code').trim();
+      const params = new URLSearchParams({home_size_m2: form.get('home_size_m2'), ltv_pct: form.get('ltv_pct'), term_years: form.get('term_years')});
+      const result = await get(`${api}/markets/${encodeURIComponent(code)}/summary?${params}`);
+      $('#market-title').textContent = `Ficha de mercado · ${form.get('geography_name') || code}`;
+      renderMetrics($('#market-card'), result.market_card);
+      const derived = {...result.derived}; delete derived.historical_percentiles;
+      renderMetrics($('#derived-card'), derived);
+      const p = result.derived.historical_percentiles;
+      $('#coverage').textContent = `Cobertura ${result.coverage.available_fields}/${result.coverage.total_fields} (${number(result.coverage.ratio_pct, 0)} %). Percentiles históricos — precio: ${p.price ?? 'N/D'}, price-to-income: ${p.price_to_income ?? 'N/D'}, price-to-rent: ${p.price_to_rent ?? 'N/D'}.`;
+      if (userInitiated) track('market_compared', {geography_code:code});
+    };
+    $('#market-filters').onsubmit = e => { e.preventDefault(); loadMarket(true).catch(error => $('#coverage').textContent = error.message); };
+    const reviewLabels = {balanced: 'Escenario equilibrado', review: 'Conviene revisarlo', high_risk: 'Riesgo elevado'};
+    const reviewMortgage = async formElement => {
+      track('review_started');
+      const form = new FormData(formElement);
+      const marketForm = new FormData($('#market-filters'));
+      let market = null;
+      try { market = await get(`${api}/markets/${encodeURIComponent(marketForm.get('geography_code').trim())}/summary`); } catch (_) { /* El cálculo personal sigue disponible sin benchmark. */ }
+      const numeric = ['property_price_eur','savings_eur','annual_net_household_income_eur','mortgage_amount_eur','annual_nominal_rate_pct','term_years','existing_monthly_debt_eur','monthly_living_costs_eur','purchase_cost_pct'];
+      const payload = Object.fromEntries(numeric.map(key => [key, Number(form.get(key) || 0)]));
+      payload.rate_type = form.get('rate_type');
+      if (form.get('annual_apr_pct')) payload.annual_apr_pct = Number(form.get('annual_apr_pct'));
+      if (market?.market_card.new_mortgage_apr_pct.value != null) payload.market_apr_pct = market.market_card.new_mortgage_apr_pct.value;
+      if (market?.market_card.euribor_12m_pct.value != null) payload.euribor_pct = market.market_card.euribor_12m_pct.value;
+      const response = await fetch(`${api}/mortgages/review`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+      if (!response.ok) throw Error(await response.text());
+      const result = await response.json();
+      if (form.get('save_local')) { localStorage.setItem('iacomprapisos.mortgageScenario', JSON.stringify(payload)); track('scenario_saved'); }
+      else localStorage.removeItem('iacomprapisos.mortgageScenario');
+      const assessment = $('#assessment'); assessment.hidden = false; assessment.dataset.status = result.status;
+      assessment.replaceChildren(); const title = document.createElement('strong'); title.textContent = reviewLabels[result.status]; assessment.append(title);
+      if (result.alerts.length) { const list = document.createElement('ul'); list.className = 'alerts'; result.alerts.forEach(alert => { const item = document.createElement('li'); item.textContent = alert.message; list.append(item); }); assessment.append(list); }
+      const metrics = Object.fromEntries(Object.entries(result.calculations).filter(([key]) => !['purchase_costs_eur','total_repayment_eur'].includes(key)).map(([key,value]) => [key,{value,unit:key.endsWith('_eur') ? 'eur' : key.endsWith('_pct') ? 'percent' : key.endsWith('_pp') ? 'percentage_points' : key.endsWith('_months') ? 'months' : null}]));
+      renderMetrics($('#mortgage-results'), metrics);
+      const effort = Number(result.calculations.effort_pct);
+      const ltv = Number(result.calculations.ltv_pct);
+      track('review_completed', {result_status:result.status, effort_bucket:effort < 30 ? 'under_30' : effort < 40 ? '30_39' : '40_plus', ltv_bucket:ltv <= 80 ? 'up_to_80' : 'over_80', alert_count_bucket:result.alerts.length === 0 ? '0' : result.alerts.length < 3 ? '1_2' : '3_plus'});
+    };
+    $('#mortgage-review').onsubmit = e => { e.preventDefault(); reviewMortgage(e.currentTarget).catch(error => { const assessment = $('#assessment'); assessment.hidden = false; assessment.textContent = error.message; }); };
+    $('#forget').onclick = () => { localStorage.removeItem('iacomprapisos.mortgageScenario'); $('#mortgage-review').reset(); $('#assessment').hidden = true; $('#mortgage-results').replaceChildren(); };
+    const saved = localStorage.getItem('iacomprapisos.mortgageScenario');
+    if (saved) { const scenario = JSON.parse(saved); Object.entries(scenario).forEach(([key,value]) => { const field = document.querySelector(`#mortgage-review [name="${key}"]`); if (field) field.value = value; }); $('#mortgage-review [name="save_local"]').checked = true; }
+    $('#question-form').onsubmit = async e => {
+      e.preventDefault(); const form = new FormData(e.currentTarget); const status = $('#question-status');
+      const geography_code = new FormData($('#market-filters')).get('geography_code').trim() || null;
+      const payload = {question:form.get('question'), category:form.get('category'), journey_stage:form.get('journey_stage'), geography_code, privacy_notice_accepted:form.get('privacy_notice_accepted') === 'on'};
+      try { const response = await fetch(`${api}/product/questions`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)}); if (!response.ok) throw Error(await response.text()); e.currentTarget.reset(); status.className = 'success'; status.textContent = 'Gracias. Hemos recibido tu duda.'; track('question_submitted', {geography_code}); } catch (error) { status.className = 'error'; status.textContent = error.message; }
+    };
+    $('#accept-analytics').onclick = () => setConsent('accepted').catch(error => alert(error.message));
+    $('#reject-analytics').onclick = () => setConsent('rejected').catch(error => alert(error.message));
+    $('#privacy-settings').onclick = () => { $('#consent-banner').hidden = false; };
+    if (!cookie('iacp_consent')) $('#consent-banner').hidden = false;
+    else if (cookie('iacp_consent') === 'accepted') track('page_view', {source:'direct'});
+    loadMarket().catch(e => $('#coverage').textContent = e.message);
   </script>
 </body>
 </html>

@@ -18,8 +18,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install project
-        run: pip install -e '.[dev]'
+      - name: Install locked dependencies
+        run: pip install --require-hashes -r requirements-dev.lock
 
       - name: Ruff
         run: ruff check app tests

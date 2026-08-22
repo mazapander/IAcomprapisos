@@ -20,8 +20,9 @@ Implementado en `app/ingestion/sources/bde_euribor.py`.
 El CSV puede incluir filas descriptivas antes de la cabecera y usar delimitadores o formatos españoles. El parser:
 
 1. Detecta el delimitador entre `;`, `,`, tabulador o `|`.
-2. Busca una columna cuyo título contenga `Euríbor` y `un año`, `1 año` o `12 meses`.
-3. Busca el periodo en las primeras columnas de cada fila.
+2. Selecciona el código oficial `D_1NBAF472` o su descripción inequívoca; si no puede
+   demostrar la identidad de la serie, rechaza el fichero.
+3. Busca el periodo en la primera columna de cada fila.
 4. Soporta fechas ISO, `MM/YYYY` y meses abreviados en español.
 5. Convierte coma decimal y elimina `%`.
 6. Ignora celdas vacías o marcadores sin dato.
@@ -67,6 +68,7 @@ En `analytics.indicator_observations` se guarda una observación mensual con `ge
 ## Riesgos conocidos
 
 - El Banco de España puede cambiar la estructura del CSV manteniendo el mismo enlace.
-- Una cabecera multinivel podría requerir combinar varias filas; el test de contrato debe alertar si deja de localizarse la serie.
+- Un cambio de código o descripción detendrá la ingesta hasta revisar el contrato; es un
+  fallo seguro para evitar publicar otra columna numérica.
 - Debemos capturar explícitamente la fecha de publicación cuando se implemente el calendario de disponibilidad point-in-time.
 - El valor mensual no debe mezclarse con valores diarios de mercado sin distinguir indicador y frecuencia.

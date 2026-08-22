@@ -32,6 +32,44 @@ def test_parses_semicolon_bde_csv() -> None:
     assert result[1][1] == Decimal("2.407")
 
 
+def test_selects_official_series_code_in_multi_series_file() -> None:
+    content = """CÓDIGO DE LA SERIE;OTHER;D_1NBAF472;LEGAL
+DESCRIPCIÓN DE LA SERIE;Otro;Euríbor a 12 meses;Interés legal
+FRECUENCIA;MENSUAL;MENSUAL;MENSUAL
+JUN 2026;9,99;2,798;4,0625
+"""
+    result = parse_bde_euribor_csv(content)
+    assert result == [
+        (
+            date(2026, 6, 1),
+            Decimal("2.798"),
+            {
+                "raw_row": ["JUN 2026", "9,99", "2,798", "4,0625"],
+                "header": [
+                    "CÓDIGO DE LA SERIE",
+                    "OTHER",
+                    "D_1NBAF472",
+                    "LEGAL",
+                ],
+                "date_column": 0,
+                "value_column": 2,
+            },
+        )
+    ]
+
+
+def test_refuses_ambiguous_numeric_file() -> None:
+    content = """FRECUENCIA;MENSUAL;MENSUAL
+JUN 2026;2,798;4,0625
+"""
+    try:
+        parse_bde_euribor_csv(content)
+    except ValueError as error:
+        assert "could not be identified" in str(error)
+    else:
+        raise AssertionError("Ambiguous source must fail closed")
+
+
 def test_transforms_bde_raw_record() -> None:
     record = SourceRecord(
         dataset="bde_be1901_reference_rates",

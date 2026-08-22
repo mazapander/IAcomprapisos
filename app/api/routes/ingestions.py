@@ -1,11 +1,9 @@
 from datetime import UTC, datetime, timedelta
-from typing import Annotated
-
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
+from app.api.dependencies import verify_api_key
 from app.db.models import IngestionRun
 from app.db.session import get_session
 from app.ingestion.registry import available_sources
@@ -13,11 +11,6 @@ from app.ingestion.service import execute_ingestion, list_runs
 from app.schemas.ingestion import IngestionRequest, IngestionRunResponse
 
 router = APIRouter()
-
-
-async def verify_api_key(x_api_key: Annotated[str | None, Header()] = None) -> None:
-    if x_api_key != settings.api_key:
-        raise HTTPException(status_code=401, detail="Invalid API key")
 
 
 @router.get("/sources")
@@ -70,7 +63,11 @@ async def trigger(
     )
 
 
-@router.get("/runs", response_model=list[IngestionRunResponse])
+@router.get(
+    "/runs",
+    response_model=list[IngestionRunResponse],
+    dependencies=[Depends(verify_api_key)],
+)
 async def runs(
     limit: int = Query(100, ge=1, le=500),
     session: AsyncSession = Depends(get_session),

@@ -99,3 +99,57 @@ class IndicatorObservation(Base):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     available_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     extra_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
+
+
+class ProductVisitor(Base):
+    __tablename__ = "visitors"
+    __table_args__ = (
+        Index("ix_product_visitors_last_seen", "last_seen_at"),
+        {"schema": "product"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    consent_version: Mapped[str] = mapped_column(String(20))
+    consented_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ProductEvent(Base):
+    __tablename__ = "events"
+    __table_args__ = (
+        Index("ix_product_events_name_occurred", "event_name", "occurred_at"),
+        Index("ix_product_events_visitor_occurred", "visitor_id", "occurred_at"),
+        {"schema": "product"},
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    visitor_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    session_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
+    event_name: Mapped[str] = mapped_column(String(50))
+    page_path: Mapped[str] = mapped_column(String(200))
+    properties: Mapped[dict] = mapped_column(JSONB, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class UserQuestion(Base):
+    __tablename__ = "questions"
+    __table_args__ = (
+        Index("ix_product_questions_status_created", "status", "created_at"),
+        {"schema": "product"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    visitor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    question: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(40))
+    journey_stage: Mapped[str] = mapped_column(String(40))
+    geography_code: Mapped[str | None] = mapped_column(String(20))
+    contact_email: Mapped[str | None] = mapped_column(String(254))
+    contact_consent: Mapped[bool] = mapped_column(Boolean, default=False)
+    privacy_notice_version: Mapped[str] = mapped_column(String(20))
+    status: Mapped[str] = mapped_column(String(20), default="new")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
