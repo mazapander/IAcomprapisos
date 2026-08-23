@@ -31,13 +31,7 @@ def _raw_metadata(payload: dict) -> dict:
 
 
 def _stable_payload(value: Any) -> Any:
-    """Remove retrieval-only fields before calculating raw idempotency hashes.
-
-    The source payload remains stored untouched. Only the hash input is normalized so
-    rerunning the same official observation does not create another raw row merely
-    because it was downloaded at a different time. A revised official value still
-    produces a new hash and is therefore retained as a new raw version.
-    """
+    """Remove retrieval-only fields before comparing or hashing observations."""
     if isinstance(value, dict):
         return {
             key: _stable_payload(item)
@@ -59,6 +53,21 @@ def _payload_hash(payload: dict) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+def _observation_changed(existing: IndicatorObservation, item) -> bool:
+    """Return True only when an analytical observation materially changed."""
+    item_metadata = item.metadata or {}
+    return any(
+        (
+            existing.value != item.value,
+            existing.frequency != item.frequency,
+            existing.unit != item.unit,
+            existing.published_at != item.published_at,
+            existing.available_at != item_metadata.get("available_at"),
+            _stable_payload(existing.extra_metadata or {}) != _stable_payload(item_metadata),
+        )
+    )
+
+
 async def _resolve_ingestion_parameters(
     session: AsyncSession,
     source: str,
@@ -77,8 +86,6 @@ async def _resolve_ingestion_parameters(
             )
         )
         if latest_period is not None:
-            # Re-read the latest stored period as an overlap. The analytics upsert
-            # updates provisional revisions and inserts a newly published period.
             resolved["date_from"] = latest_period.isoformat()
             logger.info(
                 "Incremental ingestion resolved source=%s latest_period=%s",
@@ -212,50 +219,72 @@ async def execute_ingestion(
             len(indicators),
         )
 
-        indicator_table = IndicatorObservation.__table__
+        rows_inserted = 0
+        rows_updated = 0
+        rows_unchanged = 0
+
         for item in indicators:
             item_metadata = item.metadata or {}
-            stmt = (
-                insert(indicator_table)
-                .values(
-                    indicator_code=item.indicator_code,
-                    geography_code=item.geography_code,
-                    period=item.period,
-                    frequency=item.frequency,
-                    value=item.value,
-                    unit=item.unit,
-                    source=source,
-                    source_run_id=run_id,
-                    published_at=item.published_at,
-                    available_at=item_metadata.get("available_at"),
-                    metadata=item_metadata,
-                )
-                .on_conflict_do_update(
-                    constraint="uq_indicator_geo_period_source",
-                    set_={
-                        indicator_table.c.value: item.value,
-                        indicator_table.c.frequency: item.frequency,
-                        indicator_table.c.unit: item.unit,
-                        indicator_table.c.source_run_id: run_id,
-                        indicator_table.c.published_at: item.published_at,
-                        indicator_table.c.available_at: item_metadata.get("available_at"),
-                        indicator_table.c.metadata: item_metadata,
-                    },
+            existing = await session.scalar(
+                select(IndicatorObservation).where(
+                    IndicatorObservation.indicator_code == item.indicator_code,
+                    IndicatorObservation.geography_code == item.geography_code,
+                    IndicatorObservation.period == item.period,
+                    IndicatorObservation.source == source,
                 )
             )
-            await session.execute(stmt)
+
+            if existing is None:
+                session.add(
+                    IndicatorObservation(
+                        indicator_code=item.indicator_code,
+                        geography_code=item.geography_code,
+                        period=item.period,
+                        frequency=item.frequency,
+                        value=item.value,
+                        unit=item.unit,
+                        source=source,
+                        source_run_id=run_id,
+                        published_at=item.published_at,
+                        available_at=item_metadata.get("available_at"),
+                        extra_metadata=item_metadata,
+                    )
+                )
+                rows_inserted += 1
+                continue
+
+            if not _observation_changed(existing, item):
+                rows_unchanged += 1
+                continue
+
+            existing.frequency = item.frequency
+            existing.value = item.value
+            existing.unit = item.unit
+            existing.source_run_id = run_id
+            existing.published_at = item.published_at
+            existing.available_at = item_metadata.get("available_at")
+            existing.extra_metadata = item_metadata
+            rows_updated += 1
 
         run.rows_written = len(indicators)
+        run.rows_inserted = rows_inserted
+        run.rows_updated = rows_updated
+        run.rows_unchanged = rows_unchanged
+        run.latest_period = max((item.period for item in indicators), default=None)
         run.status = "succeeded"
         run.finished_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(run)
         logger.info(
-            "Ingestion succeeded source=%s run_id=%s rows_received=%d rows_written=%d duration_s=%.2f",
+            "Ingestion succeeded source=%s run_id=%s received=%d processed=%d inserted=%d updated=%d unchanged=%d latest_period=%s duration_s=%.2f",
             source,
             run_id,
             run.rows_received,
             run.rows_written,
+            run.rows_inserted,
+            run.rows_updated,
+            run.rows_unchanged,
+            run.latest_period,
             (run.finished_at - run.started_at).total_seconds(),
         )
         return run
