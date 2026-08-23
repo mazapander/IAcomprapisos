@@ -6,10 +6,18 @@ from pydantic import BaseModel, Field, model_validator
 
 EventName = Literal[
     "page_view",
+    "tool_selected",
+    "location_selected",
+    "wizard_step_completed",
+    "budget_started",
+    "budget_completed",
+    "comparison_started",
+    "comparison_completed",
     "review_started",
     "review_completed",
     "market_compared",
     "scenario_saved",
+    "question_started",
     "question_submitted",
 ]
 
@@ -20,6 +28,13 @@ SAFE_PROPERTY_KEYS = {
     "ltv_bucket",
     "alert_count_bucket",
     "source",
+    "use_case",
+    "step",
+    "rate_type",
+    "selection_method",
+    "question_category",
+    "limiting_factor",
+    "offer_count_bucket",
 }
 
 
@@ -49,7 +64,16 @@ class ProductEventRequest(BaseModel):
 
 class QuestionRequest(BaseModel):
     question: str = Field(min_length=5, max_length=2000)
-    category: Literal["affordability", "offer", "costs", "market", "process", "other"] = "other"
+    category: Literal[
+        "affordability",
+        "offer",
+        "mixed_mortgage",
+        "early_repayment",
+        "costs",
+        "market",
+        "process",
+        "other",
+    ] = "other"
     journey_stage: Literal["exploring", "comparing", "offer_received", "ready_to_sign"] = "exploring"
     geography_code: str | None = Field(default=None, max_length=20)
     contact_email: str | None = Field(

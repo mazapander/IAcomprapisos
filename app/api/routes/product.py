@@ -157,6 +157,20 @@ async def product_metrics(
     questions = await session.scalar(
         select(func.count(UserQuestion.id)).where(UserQuestion.created_at >= since)
     )
+    category_rows = (
+        await session.execute(
+            select(UserQuestion.category, func.count(UserQuestion.id))
+            .where(UserQuestion.created_at >= since)
+            .group_by(UserQuestion.category)
+        )
+    ).all()
+    stage_rows = (
+        await session.execute(
+            select(UserQuestion.journey_stage, func.count(UserQuestion.id))
+            .where(UserQuestion.created_at >= since)
+            .group_by(UserQuestion.journey_stage)
+        )
+    ).all()
     starts = events.get("review_started", 0)
     completions = events.get("review_completed", 0)
     return {
@@ -164,6 +178,8 @@ async def product_metrics(
         "unique_visitors": visitors or 0,
         "events": events,
         "questions": questions or 0,
+        "question_categories": {category: count for category, count in category_rows},
+        "question_journey_stages": {stage: count for stage, count in stage_rows},
         "review_completion_pct": round(completions / starts * 100, 1) if starts else None,
     }
 

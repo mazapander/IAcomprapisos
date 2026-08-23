@@ -2,8 +2,7 @@
 
 ## API pública de consulta
 - `GET /analytics/indicators`
-- `GET /markets/ccaa`
-- `GET /markets/provinces`
+- `GET /markets/geographies`
 - `GET /markets/{geography_code}/summary`
 - `GET /markets/{geography_code}/series`
 - `GET /scores/{geography_code}`
@@ -16,13 +15,14 @@
 - `GET /status/sources`
 - `POST /admin/reprocess`
 
-## Pantallas finales
-1. Dashboard nacional.
-2. Ranking territorial de oportunidad y riesgo.
-3. Comparador de hasta cuatro territorios.
-4. Detalle de CCAA/provincia.
-5. Calidad y frescura de datos.
-6. Ejecuciones de ingesta para administración.
+## Entradas de producto
+
+1. Entender una zona mediante selección territorial visual.
+2. Calcular un presupuesto de compra sostenible.
+3. Comparar hasta cuatro ofertas en igualdad de condiciones.
+4. Revisar una sola oferta mediante un formulario progresivo.
+5. Plantear una duda o caso para ampliar la base de conocimiento.
+6. Consultar métricas y dudas desde el panel interno.
 
 El frontend no calculará indicadores ni scores. Consumirá contratos versionados de FastAPI para garantizar consistencia y permitir otros clientes.
 
@@ -51,6 +51,15 @@ del catálogo.
 explicables: cuota, esfuerzo, LTV, entrada y gastos, colchón, coste total, spread y estrés
 de tipos. El endpoint es determinista, no persiste la petición y separa el dato oficial
 de las hipótesis del usuario.
+
+El contrato admite hipotecas fijas, variables y mixtas. En una mixta calcula por separado
+el tramo fijo, el capital pendiente al cambiar de fase, la cuota variable y el estrés del
+índice de referencia. Comisiones y vinculaciones declaradas se suman a un coste comparable;
+no se confunden con intereses ni con la TAE de la oferta.
+
+`POST /api/v1/mortgages/budget` calcula un precio máximo orientativo combinando el límite
+de esfuerzo, el LTV escogido, el efectivo disponible y un colchón de seguridad. Expone si
+el factor limitante es la capacidad mensual o el ahorro.
 
 El navegador utiliza almacenamiento local opt-in para recuperar un escenario. Los datos
 financieros personales no se guardan en cookies ni se envían a terceros. Las cookies no

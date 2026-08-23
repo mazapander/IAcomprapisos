@@ -73,6 +73,26 @@ def test_raw_financial_values_are_rejected_from_analytics() -> None:
         app.dependency_overrides.clear()
 
 
+def test_safe_use_case_event_is_accepted_without_financial_values() -> None:
+    fake = FakeSession()
+    app.dependency_overrides[get_session] = lambda: fake
+    try:
+        client = TestClient(app)
+        client.post("/api/v1/product/consent", json={"choice": "accepted"})
+        response = client.post(
+            "/api/v1/product/events",
+            json={
+                "event_name": "tool_selected",
+                "session_id": "12345678-1234-5678-1234-567812345678",
+                "properties": {"use_case": "budget"},
+            },
+        )
+        assert response.status_code == 202
+        assert fake.added[-1].properties == {"use_case": "budget"}
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_question_requires_explicit_privacy_acceptance() -> None:
     fake = FakeSession()
     app.dependency_overrides[get_session] = lambda: fake
