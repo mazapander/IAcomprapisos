@@ -30,7 +30,7 @@ def _raw_metadata(payload: dict) -> dict:
 
 
 def _stable_payload(value: Any) -> Any:
-    """Remove retrieval-only fields before calculating raw idempotency hashes."""
+    """Remove retrieval-only fields before comparing or hashing observations."""
     if isinstance(value, dict):
         return {
             key: _stable_payload(item)
@@ -62,7 +62,7 @@ def _observation_changed(existing: IndicatorObservation, item) -> bool:
             existing.unit != item.unit,
             existing.published_at != item.published_at,
             existing.available_at != item_metadata.get("available_at"),
-            (existing.extra_metadata or {}) != item_metadata,
+            _stable_payload(existing.extra_metadata or {}) != _stable_payload(item_metadata),
         )
     )
 
