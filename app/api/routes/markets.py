@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import select
+from sqlalchemy import distinct, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.derived import (
@@ -14,8 +14,34 @@ from app.analytics.derived import (
 )
 from app.db.models import IndicatorObservation
 from app.db.session import get_session
+from app.geographies import build_geography_catalog
 
 router = APIRouter()
+
+
+@router.get("/geographies")
+async def market_geographies(
+    session: Annotated[AsyncSession, Depends(get_session)],
+):
+    """Return a named geography catalog and disclose actual data availability."""
+    rows = (
+        await session.execute(
+            select(
+                IndicatorObservation.geography_code,
+                func.count(distinct(IndicatorObservation.indicator_code)),
+                func.max(IndicatorObservation.period),
+            ).group_by(IndicatorObservation.geography_code)
+        )
+    ).all()
+    return {
+        "items": build_geography_catalog(rows),
+        "supported_levels": ["country", "ccaa", "province"],
+        "municipality_supported": False,
+        "notice": (
+            "La cobertura municipal todavía no forma parte del contrato público; "
+            "la interfaz no presenta datos provinciales como si fueran municipales."
+        ),
+    }
 
 
 @router.get("/{geography_code}/summary")

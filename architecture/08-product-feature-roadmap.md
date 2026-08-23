@@ -11,8 +11,9 @@ deben mantener consentimiento, minimización y borrado desde el diseño.
    salto anómalo o descenso de cobertura antes de promover una ingesta.
 3. **Explicación de cada cálculo.** Desplegable con fórmula, valores usados y supuestos;
    distinguir TIN, TAE, TEDR y Euríbor en lenguaje sencillo.
-4. **Comparador FEIN.** Introducción manual estructurada de varias ofertas, sin guardar
-   documentos por defecto, con coste, cuota, vinculaciones y escenarios homogéneos.
+4. **Comparador FEIN.** La comparación manual estructurada ya cubre hasta cuatro ofertas,
+   modalidades mixtas, comisiones y vinculaciones. El siguiente incremento debe importar una
+   FEIN con confirmación campo a campo, sin guardar el documento por defecto.
 5. **Panel operativo.** Fallos de ingesta, frescura, cobertura, dudas sin resolver,
    consentimiento y eliminaciones; nunca importes individuales.
 
@@ -28,18 +29,21 @@ deben mantener consentimiento, minimización y borrado desde el diseño.
    percentil histórico y tendencia para territorios equivalentes.
 10. **Alertas personales opcionales.** Cambios en Euríbor, mercado o esfuerzo guardado,
     con consentimiento separado, frecuencia elegida y baja inmediata.
+11. **Catálogo neutral de ofertas públicas.** Condiciones publicadas por entidades con fecha,
+    requisitos, vinculaciones y metodología de actualización. Debe distinguir publicidad,
+    ejemplo representativo y oferta personalizada, y nunca favorecer a un proveedor por pago.
 
 ## P2 — aprendizaje y servicio
 
-11. **Centro de dudas trazable.** Taxonomía de preguntas, respuesta editorial enlazada a
+12. **Centro de dudas trazable.** Taxonomía de preguntas, respuesta editorial enlazada a
     fuentes y fecha de revisión, sin reutilizar texto personal como analítica.
-12. **Embudo respetuoso.** Medir comprensión, abandono y utilidad por tramos amplios;
+13. **Embudo respetuoso.** Medir comprensión, abandono y utilidad por tramos amplios;
     pruebas A/B solo tras consentimiento y con umbral mínimo de agregación.
-13. **Exportación de informe.** PDF/JSON descargable localmente con supuestos, fuentes y
+14. **Exportación de informe.** PDF/JSON descargable localmente con supuestos, fuentes y
     comparativa, sin copia de servidor salvo petición expresa.
-14. **Accesibilidad y lectura fácil.** WCAG 2.2 AA, navegación por teclado, contraste,
+15. **Accesibilidad y lectura fácil.** WCAG 2.2 AA, navegación por teclado, contraste,
     lenguaje alternativo y pruebas con usuarios.
-15. **API de datos pública.** Versionada, con metadatos y caché, límites de uso y
+16. **API de datos pública.** Versionada, con metadatos y caché, límites de uso y
     changelog; separar endpoints estadísticos de los administrativos.
 
 ## Métricas de éxito recomendadas

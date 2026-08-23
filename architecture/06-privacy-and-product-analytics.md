@@ -22,6 +22,11 @@ identificadores bancarios ni el contenido de una FEIN. Esos campos no están per
 el esquema de la API. Los conteos de alertas, esfuerzo y LTV se agrupan en intervalos y la
 geografía no es más precisa que provincia.
 
+El comparador múltiple tampoco registra nombres de entidades, TIN, TAE, comisiones ni
+vinculaciones. Solo puede medir, tras consentimiento, que se inició o completó una comparación
+y un tramo agregado de número de ofertas. La taxonomía de dudas se registra junto con el texto
+únicamente mediante el consentimiento específico del formulario de consulta.
+
 La capa de consentimiento muestra aceptación y rechazo equivalentes. La cookie funcional
 `iacp_consent` recuerda la preferencia y `iacp_visitor`, propia y HttpOnly, solo se crea al
 aceptar. Al retirar el consentimiento se eliminan el identificador y sus eventos. Los datos

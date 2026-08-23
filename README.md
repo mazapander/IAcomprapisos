@@ -1,8 +1,8 @@
 # IA Compra Pisos
 
-Plataforma de datos para recopilar, normalizar y consultar indicadores del mercado
-residencial español. El backend utiliza FastAPI, PostgreSQL y Alembic y está preparado
-para ser orquestado desde n8n.
+Plataforma de datos y decisión que reduce la asimetría de información entre quien compra
+una vivienda y las entidades con las que negocia. Combina un frontend React con FastAPI,
+PostgreSQL y Alembic; las ingestas siguen preparadas para orquestarse desde n8n.
 
 ## Fuentes implementadas
 
@@ -41,7 +41,21 @@ docker compose up --build
 - Consultar ejecuciones: `GET /api/v1/ingestions/runs`
 - Consultar indicadores: `GET /api/v1/analytics/indicators`
 - Ficha territorial de producto: `GET /api/v1/markets/PROV:24/summary`
+- Catálogo geográfico y cobertura: `GET /api/v1/markets/geographies`
+- Presupuesto sostenible: `POST /api/v1/mortgages/budget`
 - Revisión de una oferta hipotecaria: `POST /api/v1/mortgages/review`
+
+### Desarrollo del frontend
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Vite usa `http://localhost:5173` y redirige `/api` a FastAPI en el puerto 8000. `npm run
+build` genera el bundle que FastAPI sirve desde `app/web`. La imagen Docker realiza este
+build en una etapa Node separada, por lo que el despliegue continúa siendo un único servicio.
 
 ## Capa de producto
 
@@ -65,13 +79,21 @@ estimación como dato oficial.
 curl 'http://localhost:8000/api/v1/markets/PROV:24/summary?home_size_m2=90&ltv_pct=80&term_years=25'
 ```
 
-### Asistente de decisión hipotecaria
+### Herramientas de decisión
+
+`POST /api/v1/mortgages/budget` estima un precio de compra sostenible y explica si limita
+más la capacidad de pago mensual o el ahorro disponible después de reservar un colchón.
 
 `POST /api/v1/mortgages/review` calcula la cuota con el TIN y usa TAE y Euríbor solo para
 comparaciones coherentes. Devuelve cuota, esfuerzo, LTV, efectivo necesario, ahorro restante,
 colchón de emergencia, intereses totales y un estrés de tipos de dos puntos. Las alertas
 explican problemas concretos de liquidez, endeudamiento o exposición a tipos; no emiten
 una aprobación crediticia.
+
+El contrato admite ofertas fijas, variables y mixtas. Para comparar ofertas suma por separado
+intereses, comisiones iniciales y vinculaciones declaradas. La interfaz permite normalizar
+entre dos y cuatro propuestas sobre la misma vivienda y utilizar la diferencia de coste como
+argumento de negociación.
 
 La web pública guarda el escenario únicamente en `localStorage` y solo cuando la persona
 marca expresamente «Guardar este escenario». El formulario no usa cookies para renta,
@@ -119,4 +141,5 @@ curl -X POST http://iacomprapisos:8000/api/v1/ingestions/bde_euribor \
 
 Consulta `architecture/07-security-data-integrity-audit.md` para el dictamen, las fuentes,
 los cálculos validados y los riesgos abiertos, y `architecture/08-product-feature-roadmap.md`
-para las mejoras propuestas.
+para las mejoras propuestas. El posicionamiento, los flujos UX y las decisiones técnicas del
+refactor React están en `architecture/09-frontend-product-refactor.md`.
