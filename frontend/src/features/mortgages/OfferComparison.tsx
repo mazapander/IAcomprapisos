@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { ArrowRight, BadgeEuro, Plus, Scale, ShieldCheck, Trash2, TrendingDown } from 'lucide-react'
 
-import { reviewMortgage, track } from '../api'
-import type { CalculationResult, MortgageReviewPayload, RateType } from '../types'
-import { ErrorState, LoadingState, NumberField, Segmented, formatValue } from './ui'
+import { reviewMortgage, track } from '../../api'
+import type { CalculationResult, MortgageReviewPayload, RateType } from '../../types'
+import { ErrorState, LoadingState, NumberField, Segmented, formatValue } from '../../shared/components/ui'
 
 interface Offer {
   id: number

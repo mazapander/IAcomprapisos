@@ -16,6 +16,7 @@ EventName = Literal[
     "review_started",
     "review_completed",
     "market_compared",
+    "observatory_group_changed",
     "scenario_saved",
     "question_started",
     "question_submitted",

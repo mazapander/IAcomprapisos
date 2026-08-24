@@ -9,9 +9,9 @@ import {
   Sparkles,
 } from 'lucide-react'
 
-import { reviewMortgage, track } from '../api'
-import type { CalculationResult, MortgageReviewPayload, RateType } from '../types'
-import { ErrorState, LoadingState, NumberField, ResultPanel, Segmented } from './ui'
+import { reviewMortgage, track } from '../../api'
+import type { CalculationResult, MortgageReviewPayload, RateType } from '../../types'
+import { ErrorState, LoadingState, NumberField, ResultPanel, Segmented } from '../../shared/components/ui'
 
 const STORAGE_KEY = 'iacomprapisos.mortgageScenario'
 

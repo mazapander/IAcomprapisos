@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { ArrowRight, PiggyBank, ShieldCheck, Sparkles } from 'lucide-react'
 
-import { calculateBudget, track } from '../api'
-import type { CalculationResult } from '../types'
-import { ErrorState, LoadingState, NumberField, ResultPanel, Segmented } from './ui'
+import { calculateBudget, track } from '../../api'
+import type { CalculationResult } from '../../types'
+import { ErrorState, LoadingState, NumberField, ResultPanel, Segmented } from '../../shared/components/ui'
 
 export default function BudgetCalculator({ marketRate }: { marketRate?: number }) {
   const [monthlyIncome, setMonthlyIncome] = useState(3500)

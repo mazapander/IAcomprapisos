@@ -3,6 +3,7 @@ import type {
   Geography,
   MarketSummary,
   MortgageReviewPayload,
+  NationalObservatoryData,
 } from './types'
 
 const API_ROOT = '/api/v1'
@@ -45,6 +46,10 @@ export function getMarketSummary(
   return request<MarketSummary>(
     `/markets/${encodeURIComponent(geographyCode)}/summary?${params.toString()}`,
   )
+}
+
+export function getNationalObservatory(years = 10) {
+  return request<NationalObservatoryData>(`/markets/observatory/national?years=${years}`)
 }
 
 export function calculateBudget(payload: Record<string, number>) {

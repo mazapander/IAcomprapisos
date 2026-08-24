@@ -17,7 +17,39 @@ sino más capacidad para contrastar y negociar.
 - Cálculos financieros y derivados siguen residiendo en FastAPI; React solo compone los
   contratos y presenta resultados.
 
+La aplicación se organiza por responsabilidad, no por tamaño accidental del fichero:
+
+```text
+frontend/src/
+├── app/                 # composición, catálogo de herramientas y contexto compartido
+├── views/               # portada y espacio de trabajo
+├── layout/              # cabecera y pie
+├── features/            # observatorio, mercado, presupuesto, hipotecas y dudas
+├── shared/components/   # controles de presentación reutilizables
+├── api.ts               # cliente HTTP y contratos de entrada
+└── main.tsx             # bootstrap de React, sin lógica de producto
+```
+
+En backend, `app/main.py` se limita a invocar la factoría de aplicación. La configuración de
+FastAPI, middleware, router y estáticos vive en `app/core/application.py`; las rutas están en
+`app/api/routes`; los cálculos del observatorio en
+`app/analytics/national_observatory.py`; las ingestas y modelos permanecen aislados. Así, una
+feature puede probarse sin montar la interfaz ni conectarse a la base de datos.
+
+La regla de dependencias es descendente: `app` compone `views`; las vistas activan `features`;
+las features reutilizan `shared` y los contratos HTTP. Ninguna feature conoce la portada, la
+navegación o el bootstrap. Esta frontera evita que añadir una herramienta vuelva a convertir
+la aplicación en un componente único.
+
 ## Flujos
+
+### Seguir el mercado estatal
+
+El observatorio agrupa precios, hipotecas y tipos/tasas. Permite consultar 5, 10 o 20 años,
+seleccionar cada serie y ver su evolución, último valor, variación interanual, fuente y periodo.
+No mezcla magnitudes con ejes ambiguos: cada gráfico representa una única serie y conserva su
+unidad. El importe medio hipotecario solo se calcula al alinear importe y número de operaciones
+del INE en el mismo mes. Una ausencia se muestra como falta de cobertura, no como estimación.
 
 ### Entender una zona
 

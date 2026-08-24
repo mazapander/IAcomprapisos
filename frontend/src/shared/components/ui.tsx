@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { AlertCircle, CheckCircle2, Info, LoaderCircle } from 'lucide-react'
 
-import type { CalculationResult, Metric } from '../types'
+import type { CalculationResult, Metric } from '../../types'
 
 export function Field({
   label,
@@ -151,6 +151,9 @@ export function formatValue(value: number | null, unit?: string | null, key?: st
   }).format(value)
   if (unit === 'eur_m2') return `${number} €/m²`
   if (unit === 'eur_year') return `${number} €/año`
+  if (unit === 'million_eur') return `${number} M€`
+  if (unit === 'mortgages') return `${number} hipotecas`
+  if (unit?.startsWith('index_')) return `${number} puntos`
   if (unit === 'eur' || key?.endsWith('_eur')) return `${number} €`
   if (unit === 'percent' || key?.endsWith('_pct')) return `${number} %`
   if (unit === 'percentage_points' || key?.endsWith('_pp')) return `${number} pp`
