@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BarChart3, ShieldCheck, X } from 'lucide-react'
 
-import { analyticsConsent, setAnalyticsConsent, track } from '../api'
+import { analyticsConsent, setAnalyticsConsent, track } from '../../api'
 
 export default function ConsentBanner({ settingsSignal = 0 }: { settingsSignal?: number }) {
   const [visible, setVisible] = useState(() => !analyticsConsent())

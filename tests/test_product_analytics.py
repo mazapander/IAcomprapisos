@@ -93,6 +93,25 @@ def test_safe_use_case_event_is_accepted_without_financial_values() -> None:
         app.dependency_overrides.clear()
 
 
+def test_observatory_navigation_event_is_allowlisted() -> None:
+    fake = FakeSession()
+    app.dependency_overrides[get_session] = lambda: fake
+    try:
+        client = TestClient(app)
+        client.post("/api/v1/product/consent", json={"choice": "accepted"})
+        response = client.post(
+            "/api/v1/product/events",
+            json={
+                "event_name": "observatory_group_changed",
+                "session_id": "12345678-1234-5678-1234-567812345678",
+                "properties": {"use_case": "rates"},
+            },
+        )
+        assert response.status_code == 202
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_question_requires_explicit_privacy_acceptance() -> None:
     fake = FakeSession()
     app.dependency_overrides[get_session] = lambda: fake

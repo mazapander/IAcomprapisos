@@ -13,8 +13,8 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
-import { submitQuestion, track } from '../api'
-import { ErrorState, LoadingState, Segmented } from './ui'
+import { submitQuestion, track } from '../../api'
+import { ErrorState, LoadingState, Segmented } from '../../shared/components/ui'
 
 const CATEGORIES = [
   { value: 'affordability', label: 'Qué puedo permitirme', icon: Banknote },

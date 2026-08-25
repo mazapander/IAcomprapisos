@@ -42,6 +42,7 @@ docker compose up --build
 - Consultar indicadores: `GET /api/v1/analytics/indicators`
 - Ficha territorial de producto: `GET /api/v1/markets/PROV:24/summary`
 - Catálogo geográfico y cobertura: `GET /api/v1/markets/geographies`
+- Observatorio estatal: `GET /api/v1/markets/observatory/national?years=10`
 - Presupuesto sostenible: `POST /api/v1/mortgages/budget`
 - Revisión de una oferta hipotecaria: `POST /api/v1/mortgages/review`
 
@@ -58,6 +59,13 @@ build` genera el bundle que FastAPI sirve desde `app/web`. La imagen Docker real
 build en una etapa Node separada, por lo que el despliegue continúa siendo un único servicio.
 
 ## Capa de producto
+
+`GET /api/v1/markets/observatory/national` reúne el seguimiento estatal en tres bloques:
+precios, actividad hipotecaria y tipos. Publica la serie histórica, último valor, cambio frente
+al dato anterior y variación interanual. Para los tipos expresa la diferencia en puntos
+porcentuales; para índices e importes utiliza variación porcentual. El importe medio hipotecario
+se deriva únicamente cuando el número y el importe total del INE coinciden en el mismo periodo.
+Cada serie mantiene fuente y fecha, y las series sin cobertura se devuelven como ausentes.
 
 `GET /api/v1/markets/{geography_code}/summary` devuelve una ficha territorial lista
 para web con precio, renta neta del hogar, peso de salarios, variación interanual de

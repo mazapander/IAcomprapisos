@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Database, MapPin, Search, SlidersHorizontal } from 'lucide-react'
 
-import { getGeographies, getMarketSummary, track } from '../api'
-import { FALLBACK_GEOGRAPHIES, REGION_TILES } from '../data/geographies'
-import type { Geography, MarketSummary, Metric } from '../types'
-import { ErrorState, LoadingState, MetricCard, NumberField, Segmented } from './ui'
+import { getGeographies, getMarketSummary, track } from '../../api'
+import { FALLBACK_GEOGRAPHIES, REGION_TILES } from '../../data/geographies'
+import type { Geography, MarketSummary, Metric } from '../../types'
+import { ErrorState, LoadingState, MetricCard, NumberField, Segmented } from '../../shared/components/ui'
 
 const DEFAULT_ASSUMPTIONS = { homeSize: 90, ltv: 80, term: 25 }
 
