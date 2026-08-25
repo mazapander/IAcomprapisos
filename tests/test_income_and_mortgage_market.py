@@ -72,6 +72,28 @@ async def test_ine_payload_retries_a_transient_protocol_disconnect() -> None:
     assert attempts == 2
 
 
+@pytest.mark.asyncio
+async def test_ine_payload_polls_a_pending_cache_response_until_json_is_ready() -> None:
+    attempts = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            return httpx.Response(202, headers={"retry-after": "0"}, json={"status": "pending"})
+        return httpx.Response(200, json=[{"COD": "income"}])
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        payload, _ = await fetch_ine_payload(
+            client,
+            "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/53687",
+            {"tip": "AM"},
+        )
+
+    assert payload == [{"COD": "income"}]
+    assert attempts == 2
+
+
 def test_ine_redirect_rejects_an_untrusted_host() -> None:
     from app.ingestion.sources.ine_common import _secure_ine_redirect
 
