@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Database, MapPin, Search, SlidersHorizontal } from 'lucide-react'
 
 import { getGeographies, getMarketSummary, track } from '../../api'
-import { FALLBACK_GEOGRAPHIES, REGION_TILES } from '../../data/geographies'
+import { FALLBACK_GEOGRAPHIES } from '../../data/geographies'
 import type { Geography, MarketSummary, Metric } from '../../types'
 import { ErrorState, LoadingState, MetricCard, NumberField, Segmented } from '../../shared/components/ui'
+import SpainMap from './SpainMap'
 
 const DEFAULT_ASSUMPTIONS = { homeSize: 90, ltv: 80, term: 25 }
 
@@ -121,28 +122,13 @@ export default function MarketExplorer({
             ))}
         </datalist>
 
-        <div className="tile-map" aria-label="Mapa simplificado de comunidades autónomas">
-          {REGION_TILES.map((tile) => {
-            const geography = byCode.get(tile.code)
-            return (
-              <button
-                key={tile.code}
-                type="button"
-                className={`${selectedRegion === tile.code ? 'is-active' : ''} ${geography?.available ? 'has-data' : ''}`}
-                style={{
-                  gridColumn: `${tile.x + 1} / span ${tile.width ?? 1}`,
-                  gridRow: tile.y + 1,
-                }}
-                onClick={() => geography && selectGeography(geography, 'map')}
-                title={geography?.name ?? tile.shortName}
-              >
-                {tile.shortName}
-              </button>
-            )
-          })}
-        </div>
+        <SpainMap
+          geographies={byCode}
+          selectedCode={selectedCode}
+          onSelect={(geography) => selectGeography(geography, 'map')}
+        />
         <p className="map-caption">
-          Vista territorial simplificada. El punto azul indica cobertura directa en la base.
+          Selecciona una comunidad en el mapa y después afina por provincia.
         </p>
 
         {provinces.length > 0 && (
