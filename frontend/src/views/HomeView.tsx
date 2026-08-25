@@ -1,16 +1,15 @@
 import {
   ArrowRight,
-  BarChart3,
   BookOpenCheck,
-  Building2,
   ChevronRight,
   Database,
-  Landmark,
+  Map,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react'
 
 import { TOOLS } from '../app/toolCatalog'
+import MarketPulse from '../features/observatory/MarketPulse'
 import type { ToolId } from '../types'
 
 export default function HomeView({ onSelect }: { onSelect: (id: ToolId) => void }) {
@@ -18,19 +17,18 @@ export default function HomeView({ onSelect }: { onSelect: (id: ToolId) => void 
     <>
       <section className="hero-section">
         <div className="hero-copy">
-          <span className="eyebrow eyebrow--hero"><Sparkles size={15} /> Información para negociar de tú a tú</span>
-          <h1>Comprar una vivienda no debería significar negociar a ciegas.</h1>
+          <span className="eyebrow eyebrow--hero"><Sparkles size={15} /> El radar de quien compra</span>
+          <h1>Que el mercado no juegue en tu contra.</h1>
           <p>
-            Bancos, entidades e intermediarios conocen el mercado mejor que quien compra.
-            Reunimos datos y herramientas para reducir esa desventaja y ayudarte a decidir,
-            comparar y preguntar con criterio.
+            Precio, zona, hipoteca y condiciones de la oferta: el contexto que necesitas para
+            tomar una decisión grande y sentarte delante de una entidad con mejores preguntas.
           </p>
           <div className="hero-actions">
-            <button className="button button--primary" onClick={() => onSelect('mortgage')}>
-              Comparar mis ofertas <ArrowRight size={18} />
+            <button className="button button--dark hero-primary" onClick={() => onSelect('market')}>
+              Explorar una zona <ArrowRight size={18} />
             </button>
-            <button className="button button--ghost" onClick={() => onSelect('observatory')}>
-              Ver el mercado estatal
+            <button className="button button--ghost" onClick={() => onSelect('mortgage')}>
+              Comparar una oferta
             </button>
           </div>
           <div className="trust-row">
@@ -40,22 +38,20 @@ export default function HomeView({ onSelect }: { onSelect: (id: ToolId) => void 
           </div>
         </div>
 
-        <div className="hero-visual" aria-label="De la desventaja informativa a una negociación preparada">
-          <div className="asymmetry-card asymmetry-card--buyer">
-            <span className="asymmetry-icon"><Building2 size={21} /></span>
-            <div><small>Quien compra</small><strong>Una decisión enorme</strong><span>Información dispersa y poco tiempo</span></div>
+        <div className="hero-visual hero-visual--editorial" aria-label="Resumen de las herramientas disponibles">
+          <div className="hero-visual__topline"><span>Decide con contexto</span><i /></div>
+          <div className="hero-visual__number">01</div>
+          <div className="hero-visual__statement">
+            <Map size={23} />
+            <p>Elige un territorio, mira las series y lleva una referencia a la conversación.</p>
           </div>
-          <div className="bridge-card">
-            <span><BarChart3 size={19} /></span>
-            <strong>Contexto + comparables + preguntas</strong>
-            <small>La información se convierte en capacidad de negociación</small>
-          </div>
-          <div className="asymmetry-card asymmetry-card--bank">
-            <span className="asymmetry-icon"><Landmark size={21} /></span>
-            <div><small>La entidad</small><strong>Miles de operaciones</strong><span>Modelos, precios y condiciones</span></div>
+          <div className="hero-visual__route">
+            <span>Mapa</span><span>Mercado</span><span>Oferta</span><span>Preguntas</span>
           </div>
         </div>
       </section>
+
+      <MarketPulse />
 
       <section className="tool-section">
         <div className="section-heading">

@@ -1,15 +1,30 @@
+import asyncio
 import logging
 import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
+from urllib.parse import urljoin, urlsplit, urlunsplit
 
 import httpx
 
 from app.core.config import settings
 from app.ingestion.base import SourceRecord
+from app.ingestion.security import validate_source_url
 
 logger = logging.getLogger(__name__)
+
+INE_REQUEST_HEADERS = {
+    "Accept": "application/json",
+    "User-Agent": "IACompraPisos/0.3 (+https://hipotecas.anderdata.es)",
+}
+INE_RETRYABLE_ERRORS = (
+    httpx.ConnectError,
+    httpx.ReadError,
+    httpx.ReadTimeout,
+    httpx.RemoteProtocolError,
+)
+INE_REDIRECT_STATUS_CODES = {301, 302, 303, 307, 308}
 
 CCAA_CODES = {"nacional":"ES","andalucia":"CCAA:01","aragon":"CCAA:02","asturias":"CCAA:03","balears":"CCAA:04","canarias":"CCAA:05","cantabria":"CCAA:06","castilla y leon":"CCAA:07","castilla - la mancha":"CCAA:08","cataluna":"CCAA:09","comunitat valenciana":"CCAA:10","extremadura":"CCAA:11","galicia":"CCAA:12","madrid":"CCAA:13","murcia":"CCAA:14","navarra":"CCAA:15","pais vasco":"CCAA:16","rioja":"CCAA:17","ceuta":"CCAA:18","melilla":"CCAA:19"}
 PROVINCE_CODES = {"alava":"01","araba/alava":"01","albacete":"02","alicante/alacant":"03","almeria":"04","avila":"05","badajoz":"06","balears, illes":"07","barcelona":"08","burgos":"09","caceres":"10","cadiz":"11","castellon/castello":"12","ciudad real":"13","cordoba":"14","coruna, a":"15","cuenca":"16","girona":"17","granada":"18","guadalajara":"19","gipuzkoa":"20","huelva":"21","huesca":"22","jaen":"23","leon":"24","lleida":"25","rioja, la":"26","lugo":"27","madrid":"28","malaga":"29","murcia":"30","navarra":"31","ourense":"32","asturias":"33","palencia":"34","palmas, las":"35","pontevedra":"36","salamanca":"37","santa cruz de tenerife":"38","cantabria":"39","segovia":"40","sevilla":"41","soria":"42","tarragona":"43","teruel":"44","toledo":"45","valencia/valencia":"46","valladolid":"47","bizkaia":"48","zamora":"49","zaragoza":"50","ceuta":"51","melilla":"52"}
@@ -104,6 +119,75 @@ def parse_decimal(value: Any) -> Decimal:
     return Decimal(str(value))
 
 
+def _secure_ine_redirect(base_url: str, location: str) -> str:
+    """Resolve an INE redirect without allowing a source-host escape or HTTPS downgrade."""
+    resolved = urljoin(base_url, location)
+    parsed = urlsplit(resolved)
+    if parsed.scheme == "http":
+        parsed = parsed._replace(scheme="https")
+    target = urlunsplit(parsed)
+    return validate_source_url(target)
+
+
+async def fetch_ine_payload(
+    client: httpx.AsyncClient,
+    url: str,
+    params: dict[str, str],
+) -> tuple[list[dict[str, Any]], str]:
+    """Fetch an INE table with explicit, safe redirects and transient retries.
+
+    The Tempus endpoint intermittently returns a permanent redirect and may close
+    the redirected connection before emitting headers. Handling the redirect
+    ourselves lets us verify its host, retain HTTPS and retry a fresh connection.
+    """
+    current_url = validate_source_url(url)
+    current_params: dict[str, str] | None = params
+
+    for redirect_hop in range(4):
+        response: httpx.Response | None = None
+        for attempt in range(3):
+            try:
+                response = await client.get(
+                    current_url,
+                    params=current_params,
+                    follow_redirects=False,
+                )
+                break
+            except INE_RETRYABLE_ERRORS as exc:
+                if attempt == 2:
+                    raise
+                delay_seconds = 0.4 * (2**attempt)
+                logger.warning(
+                    "INE request retry source_url=%s attempt=%d error=%s",
+                    current_url,
+                    attempt + 1,
+                    type(exc).__name__,
+                )
+                await asyncio.sleep(delay_seconds)
+
+        assert response is not None
+        if response.status_code not in INE_REDIRECT_STATUS_CODES:
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, list):
+                raise ValueError("INE table response is not a list of series")
+            return payload, str(response.url)
+
+        location = response.headers.get("location")
+        if not location:
+            raise ValueError(f"INE redirect without Location header for {current_url}")
+        current_url = _secure_ine_redirect(str(response.url), location)
+        current_params = None
+        logger.info(
+            "Following verified INE redirect table_url=%s destination=%s hop=%d",
+            url,
+            current_url,
+            redirect_hop + 1,
+        )
+
+    raise ValueError(f"INE exceeded redirect limit for {url}")
+
+
 async def extract_ine_table(
     table_id: str,
     source: str,
@@ -114,11 +198,16 @@ async def extract_ine_table(
     logger.info("Fetching INE table table_id=%s tip=%s", table_id, parameters.get("tip", "AM"))
     async with httpx.AsyncClient(
         timeout=settings.http_timeout_seconds,
-        follow_redirects=True,
+        follow_redirects=False,
+        headers=INE_REQUEST_HEADERS,
+        trust_env=False,
+        limits=httpx.Limits(max_keepalive_connections=0, max_connections=4),
     ) as client:
-        response = await client.get(url, params={"tip": parameters.get("tip", "AM")})
-        response.raise_for_status()
-        payload = response.json()
+        payload, resolved_url = await fetch_ine_payload(
+            client,
+            url,
+            {"tip": str(parameters.get("tip", "AM"))},
+        )
     logger.info("INE table table_id=%s series=%d", table_id, len(payload) if isinstance(payload, list) else 0)
     retrieved_at = datetime.now(UTC)
     records: list[SourceRecord] = []
@@ -154,7 +243,7 @@ async def extract_ine_table(
                     payload={
                         "provider": "INE",
                         "table_id": table_id,
-                        "api_url": str(response.url),
+                        "api_url": resolved_url,
                         "series_code": code,
                         "series_name": name,
                         "series_metadata": {k: v for k, v in series.items() if k != "Data"},

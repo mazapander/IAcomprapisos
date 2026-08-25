@@ -1,6 +1,9 @@
 from datetime import date
 from decimal import Decimal
 
+import httpx
+import pytest
+
 from app.ingestion.base import SourceRecord
 from app.ingestion.registry import available_sources
 from app.ingestion.sources.bde_mortgage_market import (
@@ -8,7 +11,7 @@ from app.ingestion.sources.bde_mortgage_market import (
     parse_bde_table_series,
     validate_bde_series_identity,
 )
-from app.ingestion.sources.ine_common import parse_period
+from app.ingestion.sources.ine_common import fetch_ine_payload, parse_period
 from app.ingestion.sources.ine_income import INEHouseholdIncomeIngestion
 
 
@@ -17,6 +20,63 @@ def test_annual_ine_period_is_normalized_to_first_day_of_year() -> None:
     assert parse_period({"Anyo": 2022, "FK_Periodo": 1}, "annual") == date(
         2022, 1, 1
     )
+
+
+@pytest.mark.asyncio
+async def test_ine_redirect_is_retried_on_verified_https_destination() -> None:
+    requests: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(str(request.url))
+        if request.url.path.endswith("/53689"):
+            return httpx.Response(
+                301,
+                headers={"location": "/wstempus/js/ES/DATOS_TABLA/53689/"},
+            )
+        return httpx.Response(200, json=[{"COD": "income"}])
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        payload, resolved_url = await fetch_ine_payload(
+            client,
+            "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/53689",
+            {"tip": "AM"},
+        )
+
+    assert payload == [{"COD": "income"}]
+    assert resolved_url.endswith("/53689/")
+    assert requests == [
+        "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/53689?tip=AM",
+        "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/53689/",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ine_payload_retries_a_transient_protocol_disconnect() -> None:
+    attempts = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise httpx.RemoteProtocolError("server disconnected")
+        return httpx.Response(200, json=[{"COD": "income"}])
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        payload, _ = await fetch_ine_payload(
+            client,
+            "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/53689",
+            {"tip": "AM"},
+        )
+
+    assert payload == [{"COD": "income"}]
+    assert attempts == 2
+
+
+def test_ine_redirect_rejects_an_untrusted_host() -> None:
+    from app.ingestion.sources.ine_common import _secure_ine_redirect
+
+    with pytest.raises(ValueError, match="not allowlisted"):
+        _secure_ine_redirect("https://servicios.ine.es/source", "https://example.test/data")
 
 
 def test_household_income_transformation() -> None:
