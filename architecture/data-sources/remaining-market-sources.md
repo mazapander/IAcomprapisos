@@ -31,9 +31,10 @@ La tabla nacional `24457` de tipos de interés hipotecarios queda registrada com
 - Frecuencia esperada: trimestral.
 - Indicador: `appraisal_price_eur_m2`.
 - Formatos soportados: CSV y XLSX.
-- URL: se suministra como `parameters.url` en cada ejecución.
+- URL oficial por defecto: `https://apps.fomento.gob.es/boletinonline2/sedal/35101000.XLS`.
+- Cobertura de la serie oficial: España, comunidades autónomas y provincias desde 1995; se conservan todas las observaciones disponibles.
 
-MIVAU distribuye esta estadística mediante publicaciones y ficheros versionados. La URL de descarga no se fija en el código para evitar que una edición nueva rompa el histórico. n8n deberá resolver o configurar la URL oficial de la edición y pasarla al backend.
+La ingesta usa por defecto el XLS histórico del boletín estadístico de MIVAU. El archivo se actualiza con cada trimestre y contiene el histórico completo; por ello una ejecución incremental es idempotente y actualiza solo las observaciones revisadas o nuevas. Se puede proporcionar `parameters.url` para recuperar una edición oficial archivada o probar una futura ruta de publicación.
 
 Parámetros opcionales:
 
@@ -60,14 +61,14 @@ SERPAVI se conserva como dato anual. La futura tabla mensual de snapshots podrá
 para `ine_house_prices` e `ine_mortgages`.
 
 ```json
-{"requested_by":"n8n-release","parameters":{"url":"https://.../fichero-oficial.xlsx","sheet_name":"Datos","geographic_level":"province"}}
+{"requested_by":"n8n-quarterly","parameters":{"mode":"incremental"}}
 ```
 
-para `mivau_appraisal` y `mivau_rent`.
+para `mivau_appraisal`. Para `mivau_rent` se mantiene la URL explícita.
 
 ## Controles pendientes antes de producción
 
-1. Verificar cada nueva edición MIVAU contra una fixture real.
+1. Verificar cada nueva edición MIVAU contra una fixture real y alertar si falta una CCAA o el trimestre esperado.
 2. Sustituir geografía `NAME:*` por aliases canónicos cuando el fichero no incluya código INE.
 3. Registrar `published_at` y `available_at` desde el calendario oficial.
 4. Añadir checks de cobertura territorial y periodos ausentes.
