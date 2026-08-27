@@ -13,6 +13,7 @@ from app.ingestion.sources.bde_mortgage_market import (
 )
 from app.ingestion.sources.ine_common import fetch_ine_payload, parse_period
 from app.ingestion.sources.ine_income import INEHouseholdIncomeIngestion
+from app.ingestion.sources.mivau_appraisal import mivau_geography
 
 
 def test_annual_ine_period_is_normalized_to_first_day_of_year() -> None:
@@ -20,6 +21,14 @@ def test_annual_ine_period_is_normalized_to_first_day_of_year() -> None:
     assert parse_period({"Anyo": 2022, "FK_Periodo": 1}, "annual") == date(
         2022, 1, 1
     )
+
+
+def test_mivau_appraisal_names_are_canonicalised_for_national_ccaa_and_province() -> None:
+    assert mivau_geography("TOTAL NACIONAL") == "ES"
+    assert mivau_geography("Asturias (Principado de )") == "CCAA:03"
+    assert mivau_geography("Madrid (Comunidad de)") == "CCAA:13"
+    assert mivau_geography("Coruña (A)") == "PROV:15"
+    assert mivau_geography("Palmas (Las)") == "PROV:35"
 
 
 @pytest.mark.asyncio
