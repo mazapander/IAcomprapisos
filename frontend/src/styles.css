@@ -433,15 +433,7 @@ body::before { content: ""; position: fixed; z-index: -1; inset: 0; pointer-even
 .search-box, .field > input, .field > select, .field textarea, .number-input, .observatory-range select { background: #fff; }
 
 .spain-map { padding: 16px 14px 0; border: 1px solid #dce4d8; border-radius: 16px; background: linear-gradient(145deg, #eef4eb, #f9fbf5); overflow: hidden; }
-.spain-map__artwork { position: relative; aspect-ratio: 1.45 / 1; overflow: hidden; border-radius: 10px; }
-.spain-map__artwork img { width: 100%; height: 100%; display: block; object-fit: contain; filter: grayscale(1) contrast(.88) sepia(.14) hue-rotate(65deg) saturate(.6); opacity: .93; }
-.spain-map__hotspots { position: absolute; inset: 0; width: 100%; height: 100%; }
-.spain-map__sea { display: none; }
-.spain-map__region { fill: rgb(181 217 59 / 0%); stroke: transparent; stroke-width: 2; }
-.spain-map__region:hover, .spain-map__region:focus-visible { fill: rgb(181 217 59 / 25%); stroke: var(--green); }
-.spain-map__region.is-active { fill: rgb(29 122 88 / 34%); stroke: var(--night); stroke-width: 3; }
-.spain-map__region.has-data { fill: rgb(181 217 59 / 12%); }
-.spain-map__region.is-active.has-data { fill: rgb(29 122 88 / 34%); }
+.spain-map__artwork { width: 100%; aspect-ratio: 923 / 658; display: block; overflow: hidden; border-radius: 10px; line-height: 0; }
 .spain-map__legend { padding: 11px 3px; color: #526157; font-weight: 700; }
 .spain-map__legend i { background: var(--lime); }
 .province-picker button.is-active { background: var(--night); border-color: var(--night); }
@@ -453,21 +445,21 @@ body::before { content: ""; position: fixed; z-index: -1; inset: 0; pointer-even
 .observatory-latest { color: #f8faf2; background: var(--night); border: 1px solid rgb(181 217 59 / 30%); }
 .observatory-latest > span:first-child, .observatory-latest .observatory-change { color: #c9d6ca; }
 .observatory-latest .observatory-change--up, .observatory-latest .observatory-change--down { color: var(--lime); }
-.observatory-chart { --chart-accent: #5f9f72; min-height: 336px; margin-top: 28px; padding: 12px 0 42px; border: 1px solid #e0e6dc; border-radius: 15px; background: linear-gradient(180deg, #fbfcf8, #f4f7f1); }
+.observatory-chart { --chart-accent: #5f9f72; min-height: 336px; margin-top: 28px; padding: 12px 0 42px; border: 1px solid #e0e6dc; border-radius: 15px; background: linear-gradient(180deg, #fbfcf8, #f4f7f1); overflow: hidden; }
 .observatory-chart svg { height: 270px; }
 .observatory-chart line { stroke: #dce4da; }
 .observatory-chart polyline { stroke: var(--chart-accent); stroke-width: 3.5; filter: drop-shadow(0 5px 4px rgb(47 102 65 / 16%)); }
 .observatory-chart circle { stroke: var(--chart-accent); }
 .observatory-chart .trend-cursor { stroke: #719e81; }
 .observatory-chart .trend-point { fill: var(--paper); stroke: var(--chart-accent); }
-.trend-y-label { fill: #718076; font-size: 10px; font-weight: 700; text-anchor: end; }
 .trend-period-grid { stroke: #e9eee7 !important; stroke-dasharray: 2 5; }
 .trend-area { pointer-events: none; }
 .trend-tooltip { top: 20px; padding: 11px 12px; border: 1px solid #b7cdb5; border-radius: 10px; background: var(--night); box-shadow: 0 14px 25px rgb(10 24 17 / 22%); }
 .trend-tooltip strong { color: var(--lime); }
 .trend-tooltip span { color: #cfdbd0; }
-.chart-source { position: absolute; bottom: 10px; left: 54px; color: #718076; font-size: 9px; font-weight: 700; letter-spacing: .025em; }
-.chart-period { color: #718076; font-weight: 700; }
+.chart-y-label { position: absolute; z-index: 1; left: 10px; color: #718076; font-size: 10px; font-weight: 800; line-height: 1; transform: translateY(-50%); white-space: nowrap; pointer-events: none; }
+.chart-source { position: absolute; bottom: 10px; left: 50%; color: #718076; font-size: 9px; font-weight: 700; letter-spacing: .025em; transform: translateX(-50%); white-space: nowrap; }
+.chart-period { bottom: 10px; color: #718076; font-weight: 700; }
 .observatory-reading { border-left: 3px solid var(--lime); background: #f2f7e9; color: #324a2f; }
 
 .result-panel { border-color: #c6dcc7; background: linear-gradient(145deg, #e7f1e2, #f8fbf3); }
