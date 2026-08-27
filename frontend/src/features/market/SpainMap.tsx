@@ -1,35 +1,36 @@
+import { useEffect, useRef, useState } from 'react'
+
 import type { Geography } from '../../types'
 import spainMapUrl from '../../data/Blank_Spain_Map_(Autonomous_Communities).svg'
 
-type RegionHitArea = {
+type RegionPath = {
   code: string
   label: string
-  d: string
+  elementId: string
 }
 
-// The source artwork is kept intact. These transparent regions provide semantic,
-// keyboard-accessible hit targets above it, so the visual map is not reduced to a
-// generic select control on smaller devices.
-const HIT_AREAS: RegionHitArea[] = [
-  { code: 'CCAA:12', label: 'Galicia', d: 'M45 103 L69 84 94 91 106 112 99 132 72 137 51 125Z' },
-  { code: 'CCAA:03', label: 'Asturias', d: 'M105 83 L151 75 165 86 157 99 119 102Z' },
-  { code: 'CCAA:06', label: 'Cantabria', d: 'M165 78 L198 75 209 88 199 99 169 97Z' },
-  { code: 'CCAA:16', label: 'País Vasco', d: 'M207 74 L241 77 251 94 234 105 208 96Z' },
-  { code: 'CCAA:15', label: 'Navarra', d: 'M247 85 L274 86 286 112 271 129 248 114Z' },
-  { code: 'CCAA:17', label: 'La Rioja', d: 'M215 102 L247 108 251 124 224 129 207 119Z' },
-  { code: 'CCAA:07', label: 'Castilla y León', d: 'M106 105 L205 98 222 128 209 166 160 175 111 157 91 129Z' },
-  { code: 'CCAA:02', label: 'Aragón', d: 'M274 106 L318 96 342 128 326 190 288 182 267 140Z' },
-  { code: 'CCAA:09', label: 'Cataluña', d: 'M320 86 L370 73 402 103 393 144 365 157 342 129Z' },
-  { code: 'CCAA:11', label: 'Extremadura', d: 'M103 159 L158 176 157 224 126 247 94 225 83 185Z' },
-  { code: 'CCAA:13', label: 'Comunidad de Madrid', d: 'M192 165 L218 169 225 193 203 205 181 188Z' },
-  { code: 'CCAA:08', label: 'Castilla-La Mancha', d: 'M158 177 L207 167 245 190 278 202 269 257 205 276 156 237Z' },
-  { code: 'CCAA:10', label: 'Comunitat Valenciana', d: 'M326 174 L356 157 374 185 364 246 338 272 315 240Z' },
-  { code: 'CCAA:14', label: 'Región de Murcia', d: 'M304 241 L338 267 326 293 298 284Z' },
-  { code: 'CCAA:01', label: 'Andalucía', d: 'M123 248 L168 229 207 275 267 259 301 285 283 320 224 335 172 320 135 292Z' },
-  { code: 'CCAA:04', label: 'Illes Balears', d: 'M423 169 L439 158 451 167 445 180 431 181ZM458 195 L469 188 477 198 469 208Z' },
-  { code: 'CCAA:05', label: 'Canarias', d: 'M45 327 L59 320 69 328 61 339ZM82 345 L100 337 113 349 99 358ZM122 326 L136 320 147 331 137 341Z' },
-  { code: 'CCAA:18', label: 'Ceuta', d: 'M267 347 L278 345 282 351 271 354Z' },
-  { code: 'CCAA:19', label: 'Melilla', d: 'M300 347 L311 344 316 350 304 353Z' },
+// IDs from the supplied source artwork. Interactions are applied to the actual
+// territory paths — no second, approximate map is rendered above the SVG.
+const REGIONS: RegionPath[] = [
+  { code: 'CCAA:12', label: 'Galicia', elementId: '_127780568' },
+  { code: 'CCAA:03', label: 'Asturias', elementId: '_128682832' },
+  { code: 'CCAA:06', label: 'Cantabria', elementId: '_129423256' },
+  { code: 'CCAA:16', label: 'País Vasco', elementId: '_127677112' },
+  { code: 'CCAA:17', label: 'La Rioja', elementId: '_129181960' },
+  { code: 'CCAA:15', label: 'Navarra', elementId: '_129786416' },
+  { code: 'CCAA:07', label: 'Castilla y León', elementId: '_130150024' },
+  { code: 'CCAA:02', label: 'Aragón', elementId: '_129253112' },
+  { code: 'CCAA:09', label: 'Cataluña', elementId: '_129272280' },
+  { code: 'CCAA:11', label: 'Extremadura', elementId: '_129003504' },
+  { code: 'CCAA:13', label: 'Comunidad de Madrid', elementId: '_130150096' },
+  { code: 'CCAA:08', label: 'Castilla-La Mancha', elementId: '_129252504' },
+  { code: 'CCAA:10', label: 'Comunitat Valenciana', elementId: '_129182272' },
+  { code: 'CCAA:14', label: 'Región de Murcia', elementId: '_128683144' },
+  { code: 'CCAA:01', label: 'Andalucía', elementId: '_128681296' },
+  { code: 'CCAA:04', label: 'Illes Balears', elementId: '_128752360' },
+  { code: 'CCAA:05', label: 'Canarias', elementId: '_129811768' },
+  { code: 'CCAA:18', label: 'Ceuta', elementId: '_128750616' },
+  { code: 'CCAA:19', label: 'Melilla', elementId: '_129003024' },
 ]
 
 export default function SpainMap({
@@ -41,39 +42,67 @@ export default function SpainMap({
   selectedCode: string
   onSelect: (geography: Geography) => void
 }) {
+  const artworkRef = useRef<HTMLObjectElement>(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
   const selectedRegion = selectedCode.startsWith('CCAA:') ? selectedCode : geographies.get(selectedCode)?.parent_code
+
+  useEffect(() => {
+    const document = artworkRef.current?.contentDocument
+    if (!document || !mapLoaded) return
+    const cleanup: Array<() => void> = []
+
+    for (const region of REGIONS) {
+      const path = document.querySelector<SVGPathElement | SVGPolygonElement>(`#${region.elementId}`)
+      const geography = geographies.get(region.code)
+      if (!path) continue
+      path.setAttribute('tabindex', geography ? '0' : '-1')
+      path.setAttribute('role', 'button')
+      path.setAttribute('aria-label', `Seleccionar ${geography?.name ?? region.label}`)
+      path.setAttribute('aria-pressed', String(selectedRegion === region.code))
+      path.style.cursor = geography ? 'pointer' : 'default'
+
+      const applyStyle = (hovered = false) => {
+        const active = selectedRegion === region.code
+        path.style.setProperty('fill', active ? '#75b08b' : hovered ? '#b5d93b' : geography?.available ? '#d8e7bd' : '#d4dbd2', 'important')
+        path.style.setProperty('stroke', active ? '#0d1612' : hovered ? '#264333' : '#f8fbf5', 'important')
+        path.style.setProperty('stroke-width', active ? '3.2' : hovered ? '2.4' : '1.15', 'important')
+      }
+      applyStyle()
+
+      const select = () => geography && onSelect(geography)
+      const keyDown = (event: Event) => {
+        const key = (event as KeyboardEvent).key
+        if (key === 'Enter' || key === ' ') {
+          event.preventDefault()
+          select()
+        }
+      }
+      const enter = () => geography && applyStyle(true)
+      const leave = () => applyStyle()
+      path.addEventListener('click', select)
+      path.addEventListener('keydown', keyDown)
+      path.addEventListener('mouseenter', enter)
+      path.addEventListener('mouseleave', leave)
+      cleanup.push(() => {
+        path.removeEventListener('click', select)
+        path.removeEventListener('keydown', keyDown)
+        path.removeEventListener('mouseenter', enter)
+        path.removeEventListener('mouseleave', leave)
+      })
+    }
+    return () => cleanup.forEach((remove) => remove())
+  }, [geographies, mapLoaded, onSelect, selectedRegion])
 
   return (
     <div className="spain-map" aria-label="Mapa interactivo de comunidades autónomas">
-      <div className="spain-map__artwork">
-        <img src={spainMapUrl} alt="Mapa de España por comunidades autónomas" />
-        <svg className="spain-map__hotspots" viewBox="0 0 500 375" role="group" aria-label="Selecciona una comunidad autónoma">
-          {HIT_AREAS.map((region) => {
-            const geography = geographies.get(region.code)
-            const active = selectedRegion === region.code
-            return (
-              <path
-                key={region.code}
-                d={region.d}
-                className={`spain-map__region ${active ? 'is-active' : ''} ${geography?.available ? 'has-data' : ''}`}
-                role="button"
-                tabIndex={0}
-                aria-label={`Seleccionar ${geography?.name ?? region.label}`}
-                aria-pressed={active}
-                onClick={() => geography && onSelect(geography)}
-                onKeyDown={(event) => {
-                  if ((event.key === 'Enter' || event.key === ' ') && geography) {
-                    event.preventDefault()
-                    onSelect(geography)
-                  }
-                }}
-              >
-                <title>{geography?.name ?? region.label}</title>
-              </path>
-            )
-          })}
-        </svg>
-      </div>
+      <object
+        className="spain-map__artwork"
+        ref={artworkRef}
+        data={spainMapUrl}
+        type="image/svg+xml"
+        aria-label="Mapa de España por comunidades autónomas"
+        onLoad={() => setMapLoaded(true)}
+      />
       <div className="spain-map__legend"><i /> Pulsa una comunidad para abrir su contexto</div>
     </div>
   )
