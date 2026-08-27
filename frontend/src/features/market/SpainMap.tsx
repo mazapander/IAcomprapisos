@@ -1,14 +1,16 @@
 import type { Geography } from '../../types'
+import spainMapUrl from '../../data/Blank_Spain_Map_(Autonomous_Communities).svg'
 
-type RegionShape = {
+type RegionHitArea = {
   code: string
   label: string
   d: string
 }
 
-// A lightweight, hand-drawn geographic silhouette keeps the interaction local and
-// accessible. Provinces remain available in the selector below the map.
-const REGIONS: RegionShape[] = [
+// The source artwork is kept intact. These transparent regions provide semantic,
+// keyboard-accessible hit targets above it, so the visual map is not reduced to a
+// generic select control on smaller devices.
+const HIT_AREAS: RegionHitArea[] = [
   { code: 'CCAA:12', label: 'Galicia', d: 'M45 103 L69 84 94 91 106 112 99 132 72 137 51 125Z' },
   { code: 'CCAA:03', label: 'Asturias', d: 'M105 83 L151 75 165 86 157 99 119 102Z' },
   { code: 'CCAA:06', label: 'Cantabria', d: 'M165 78 L198 75 209 88 199 99 169 97Z' },
@@ -43,34 +45,36 @@ export default function SpainMap({
 
   return (
     <div className="spain-map" aria-label="Mapa interactivo de comunidades autónomas">
-      <svg viewBox="0 0 500 375" role="group" aria-label="Selecciona una comunidad autónoma">
-        <path className="spain-map__sea" d="M21 55 H420 Q469 76 477 137 V294 Q452 360 350 369 H43 Q16 340 16 291 V92Q16 67 21 55Z" />
-        {REGIONS.map((region) => {
-          const geography = geographies.get(region.code)
-          const active = selectedRegion === region.code
-          return (
-            <path
-              key={region.code}
-              d={region.d}
-              className={`spain-map__region ${active ? 'is-active' : ''} ${geography?.available ? 'has-data' : ''}`}
-              role="button"
-              tabIndex={0}
-              aria-label={`Seleccionar ${geography?.name ?? region.label}`}
-              aria-pressed={active}
-              onClick={() => geography && onSelect(geography)}
-              onKeyDown={(event) => {
-                if ((event.key === 'Enter' || event.key === ' ') && geography) {
-                  event.preventDefault()
-                  onSelect(geography)
-                }
-              }}
-            >
-              <title>{geography?.name ?? region.label}</title>
-            </path>
-          )
-        })}
-      </svg>
-      <div className="spain-map__legend"><i /> Cobertura directa disponible</div>
+      <div className="spain-map__artwork">
+        <img src={spainMapUrl} alt="Mapa de España por comunidades autónomas" />
+        <svg className="spain-map__hotspots" viewBox="0 0 500 375" role="group" aria-label="Selecciona una comunidad autónoma">
+          {HIT_AREAS.map((region) => {
+            const geography = geographies.get(region.code)
+            const active = selectedRegion === region.code
+            return (
+              <path
+                key={region.code}
+                d={region.d}
+                className={`spain-map__region ${active ? 'is-active' : ''} ${geography?.available ? 'has-data' : ''}`}
+                role="button"
+                tabIndex={0}
+                aria-label={`Seleccionar ${geography?.name ?? region.label}`}
+                aria-pressed={active}
+                onClick={() => geography && onSelect(geography)}
+                onKeyDown={(event) => {
+                  if ((event.key === 'Enter' || event.key === ' ') && geography) {
+                    event.preventDefault()
+                    onSelect(geography)
+                  }
+                }}
+              >
+                <title>{geography?.name ?? region.label}</title>
+              </path>
+            )
+          })}
+        </svg>
+      </div>
+      <div className="spain-map__legend"><i /> Pulsa una comunidad para abrir su contexto</div>
     </div>
   )
 }
