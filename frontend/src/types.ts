@@ -1,4 +1,4 @@
-export type ToolId = 'observatory' | 'market' | 'budget' | 'mortgage' | 'questions'
+export type ToolId = 'observatory' | 'market' | 'budget' | 'mortgage' | 'market-data' | 'questions'
 export type RateType = 'fixed' | 'variable' | 'mixed'
 export type ObservatoryGroupId = 'prices' | 'mortgages' | 'rates'
 

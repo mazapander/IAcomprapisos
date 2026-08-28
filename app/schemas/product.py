@@ -1,7 +1,9 @@
 import uuid
+from datetime import date
+from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 EventName = Literal[
@@ -20,6 +22,7 @@ EventName = Literal[
     "scenario_saved",
     "question_started",
     "question_submitted",
+    "market_observation_submitted",
 ]
 
 SAFE_PROPERTY_KEYS = {
@@ -36,6 +39,9 @@ SAFE_PROPERTY_KEYS = {
     "question_category",
     "limiting_factor",
     "offer_count_bucket",
+    "property_type",
+    "property_age",
+    "price_fields_count_bucket",
 }
 
 
@@ -90,4 +96,53 @@ class QuestionRequest(BaseModel):
     def email_requires_contact_consent(self):
         if self.contact_email and not self.contact_consent:
             raise ValueError("Contact consent is required when an email is provided")
+        return self
+
+
+class QuestionNotificationResult(BaseModel):
+    delivered: bool
+    error: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def failed_delivery_requires_error(self):
+        if not self.delivered and not self.error:
+            raise ValueError("An error is required when delivery fails")
+        return self
+
+
+class MarketObservationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    geography_code: str = Field(pattern=r"^(ES|CCAA:\d{2}|PROV:\d{2})$", max_length=20)
+    property_type: Literal["apartment", "house", "other"]
+    property_age: Literal["new", "up_to_5", "over_5", "unknown"]
+    contributor_role: Literal["buyer", "seller", "professional", "other"] = "buyer"
+    surface_area_m2: Decimal = Field(gt=10, le=2000, max_digits=8, decimal_places=2)
+    asking_price_eur: Decimal | None = Field(
+        default=None, gt=0, le=100_000_000, max_digits=14, decimal_places=2
+    )
+    appraisal_value_eur: Decimal | None = Field(
+        default=None, gt=0, le=100_000_000, max_digits=14, decimal_places=2
+    )
+    negotiated_price_eur: Decimal | None = Field(
+        default=None, gt=0, le=100_000_000, max_digits=14, decimal_places=2
+    )
+    deed_price_eur: Decimal | None = Field(
+        default=None, gt=0, le=100_000_000, max_digits=14, decimal_places=2
+    )
+    observed_period: date = Field(default_factory=date.today)
+    market_data_consent: Literal[True]
+    privacy_notice_version: str = Field(default="2026-08-market-v1", max_length=30)
+
+    @model_validator(mode="after")
+    def normalize_and_validate_prices(self):
+        prices = (
+            self.asking_price_eur,
+            self.appraisal_value_eur,
+            self.negotiated_price_eur,
+            self.deed_price_eur,
+        )
+        if all(value is None for value in prices):
+            raise ValueError("At least one market price is required")
+        self.observed_period = self.observed_period.replace(day=1)
         return self

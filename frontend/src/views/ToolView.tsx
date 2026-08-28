@@ -4,6 +4,7 @@ import { ArrowRight, Map, Scale } from 'lucide-react'
 import { toolById } from '../app/toolCatalog'
 import BudgetCalculator from '../features/budget/BudgetCalculator'
 import MarketExplorer from '../features/market/MarketExplorer'
+import MarketObservationForm from '../features/market-data/MarketObservationForm'
 import MortgageReview from '../features/mortgages/MortgageReview'
 import OfferComparison from '../features/mortgages/OfferComparison'
 import NationalObservatory from '../features/observatory/NationalObservatory'
@@ -38,6 +39,7 @@ export default function ToolView({ activeTool, geography, market, onBack, onMark
 
       {activeTool === 'observatory' && <NationalObservatory />}
       {activeTool === 'market' && <MarketExplorer onContextChange={onMarketContext} />}
+      {activeTool === 'market-data' && <MarketObservationForm geographyCode={geography.code} geographyName={geography.name} />}
       {activeTool === 'budget' && <BudgetCalculator marketRate={marketRate} />}
       {activeTool === 'mortgage' && mortgageMode === 'compare' && (
         <OfferComparison euribor={euribor} marketApr={marketApr} geographyCode={geography.code} onSingleReview={() => setMortgageMode('single')} />
