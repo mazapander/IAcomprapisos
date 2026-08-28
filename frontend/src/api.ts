@@ -76,6 +76,17 @@ export function submitQuestion(payload: Record<string, unknown>) {
   })
 }
 
+export function submitMarketObservation(payload: Record<string, unknown>) {
+  return request<{ id: string; status: string; metrics: Record<string, number | null> }>(
+    '/product/market-observations',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
 function readCookie(name: string) {
   return document.cookie
     .split('; ')

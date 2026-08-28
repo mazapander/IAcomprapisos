@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import verify_api_key
 from app.core.config import settings
-from app.db.models import ProductEvent, ProductVisitor, UserQuestion
+from app.db.models import MarketObservation, ProductEvent, ProductVisitor, UserQuestion
 from app.db.session import get_session
 from app.schemas.product import (
     ConsentRequest,
+    MarketObservationRequest,
     ProductEventRequest,
     QuestionNotificationResult,
     QuestionRequest,
@@ -39,6 +40,36 @@ def _visitor_id(raw: str | None) -> uuid.UUID | None:
         return None
 
 
+def _market_observation_metrics(observation: MarketObservation) -> dict[str, float | None]:
+    surface = float(observation.surface_area_m2)
+
+    def per_m2(value) -> float | None:
+        return round(float(value) / surface, 2) if value is not None else None
+
+    def percentage(numerator, denominator) -> float | None:
+        if numerator is None or denominator is None:
+            return None
+        return round((float(numerator) - float(denominator)) / float(denominator) * 100, 2)
+
+    asking = observation.asking_price_eur
+    appraisal = observation.appraisal_value_eur
+    negotiated = observation.negotiated_price_eur
+    deed = observation.deed_price_eur
+    negotiated_discount = None
+    if asking is not None and negotiated is not None:
+        negotiated_discount = round(
+            (float(asking) - float(negotiated)) / float(asking) * 100,
+            2,
+        )
+    return {
+        "asking_price_eur_m2": per_m2(asking),
+        "appraisal_value_eur_m2": per_m2(appraisal),
+        "negotiated_price_eur_m2": per_m2(negotiated),
+        "deed_price_eur_m2": per_m2(deed),
+        "asking_vs_appraisal_pct": percentage(asking, appraisal),
+        "negotiated_discount_pct": negotiated_discount,
+        "deed_vs_appraisal_pct": percentage(deed, appraisal),
+    }
 @router.post("/consent")
 async def set_consent(
     payload: ConsentRequest,
@@ -143,6 +174,39 @@ async def submit_question(
     return {"id": str(question.id), "status": "received"}
 
 
+@router.post("/market-observations", status_code=201)
+async def submit_market_observation(
+    payload: MarketObservationRequest,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    now = datetime.now(UTC)
+    observation = MarketObservation(
+        id=uuid.uuid4(),
+        geography_code=payload.geography_code,
+        property_type=payload.property_type,
+        property_age=payload.property_age,
+        contributor_role=payload.contributor_role,
+        surface_area_m2=payload.surface_area_m2,
+        asking_price_eur=payload.asking_price_eur,
+        appraisal_value_eur=payload.appraisal_value_eur,
+        negotiated_price_eur=payload.negotiated_price_eur,
+        deed_price_eur=payload.deed_price_eur,
+        observed_period=payload.observed_period,
+        market_data_consent=True,
+        privacy_notice_version=payload.privacy_notice_version,
+        status="submitted",
+        created_at=now,
+        expires_at=now + timedelta(days=settings.product_data_retention_days),
+    )
+    session.add(observation)
+    await session.commit()
+    return {
+        "id": str(observation.id),
+        "status": observation.status,
+        "metrics": _market_observation_metrics(observation),
+    }
+
+
 @router.get("/admin/metrics", dependencies=[Depends(verify_api_key)])
 async def product_metrics(
     days: int = Query(30, ge=1, le=365),
@@ -162,6 +226,9 @@ async def product_metrics(
     )
     questions = await session.scalar(
         select(func.count(UserQuestion.id)).where(UserQuestion.created_at >= since)
+    )
+    market_observations = await session.scalar(
+        select(func.count(MarketObservation.id)).where(MarketObservation.created_at >= since)
     )
     category_rows = (
         await session.execute(
@@ -184,6 +251,7 @@ async def product_metrics(
         "unique_visitors": visitors or 0,
         "events": events,
         "questions": questions or 0,
+        "market_observations": market_observations or 0,
         "question_categories": {category: count for category, count in category_rows},
         "question_journey_stages": {stage: count for stage, count in stage_rows},
         "review_completion_pct": round(completions / starts * 100, 1) if starts else None,
@@ -274,15 +342,48 @@ async def record_question_notification_result(
     }
 
 
+@router.get("/admin/market-observations", dependencies=[Depends(verify_api_key)])
+async def list_market_observations(
+    limit: int = Query(100, ge=1, le=500),
+    geography_code: str | None = Query(default=None, max_length=20),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    statement = select(MarketObservation)
+    if geography_code:
+        statement = statement.where(MarketObservation.geography_code == geography_code)
+    rows = (
+        await session.scalars(statement.order_by(MarketObservation.created_at.desc()).limit(limit))
+    ).all()
+    return [
+        {
+            "id": str(row.id),
+            "geography_code": row.geography_code,
+            "property_type": row.property_type,
+            "property_age": row.property_age,
+            "contributor_role": row.contributor_role,
+            "surface_area_m2": float(row.surface_area_m2),
+            "observed_period": row.observed_period,
+            "status": row.status,
+            "metrics": _market_observation_metrics(row),
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]
+
+
 @router.post("/admin/purge-expired", dependencies=[Depends(verify_api_key)])
 async def purge_expired(session: AsyncSession = Depends(get_session)) -> dict:
     now = datetime.now(UTC)
     questions = await session.execute(delete(UserQuestion).where(UserQuestion.expires_at < now))
+    market_observations = await session.execute(
+        delete(MarketObservation).where(MarketObservation.expires_at < now)
+    )
     events = await session.execute(delete(ProductEvent).where(ProductEvent.expires_at < now))
     visitors = await session.execute(delete(ProductVisitor).where(ProductVisitor.expires_at < now))
     await session.commit()
     return {
         "deleted_questions": questions.rowcount,
+        "deleted_market_observations": market_observations.rowcount,
         "deleted_events": events.rowcount,
         "deleted_visitors": visitors.rowcount,
     }

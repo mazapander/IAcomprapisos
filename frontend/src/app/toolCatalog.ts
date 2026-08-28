@@ -1,6 +1,7 @@
 import {
   Activity,
   Calculator,
+  DatabaseZap,
   Map,
   MessageSquareText,
   Scale,
@@ -50,6 +51,14 @@ export const TOOLS: ToolDefinition[] = [
     action: 'Comparar hipotecas',
     icon: Scale,
     tone: 'amber',
+  },
+  {
+    id: 'market-data',
+    title: 'Aportar un dato real',
+    description: 'Precio pedido, tasado o negociado para construir una referencia compartida.',
+    action: 'Aportar al índice',
+    icon: DatabaseZap,
+    tone: 'green',
   },
   {
     id: 'questions',

@@ -2,7 +2,19 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, Index, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Date,
+    DateTime,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -158,5 +170,37 @@ class UserQuestion(Base):
     notification_attempts: Mapped[int] = mapped_column(Integer, default=0)
     notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_notification_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class MarketObservation(Base):
+    __tablename__ = "market_observations"
+    __table_args__ = (
+        CheckConstraint("surface_area_m2 > 0", name="ck_market_observation_surface_positive"),
+        CheckConstraint(
+            "asking_price_eur IS NOT NULL OR appraisal_value_eur IS NOT NULL "
+            "OR negotiated_price_eur IS NOT NULL OR deed_price_eur IS NOT NULL",
+            name="ck_market_observation_has_price",
+        ),
+        Index("ix_product_market_observations_geo_period", "geography_code", "observed_period"),
+        Index("ix_product_market_observations_status_created", "status", "created_at"),
+        {"schema": "product"},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    geography_code: Mapped[str] = mapped_column(String(20))
+    property_type: Mapped[str] = mapped_column(String(20))
+    property_age: Mapped[str] = mapped_column(String(20))
+    contributor_role: Mapped[str] = mapped_column(String(20))
+    surface_area_m2: Mapped[Decimal] = mapped_column(Numeric(8, 2))
+    asking_price_eur: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    appraisal_value_eur: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    negotiated_price_eur: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    deed_price_eur: Mapped[Decimal | None] = mapped_column(Numeric(14, 2))
+    observed_period: Mapped[date] = mapped_column(Date)
+    market_data_consent: Mapped[bool] = mapped_column(Boolean)
+    privacy_notice_version: Mapped[str] = mapped_column(String(30))
+    status: Mapped[str] = mapped_column(String(20), default="submitted")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

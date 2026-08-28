@@ -44,6 +44,7 @@ El workflow manual `Deploy production` necesita un Environment de GitHub llamado
 - Salud: `GET /api/v1/health`.
 - Métricas internas: `/admin.html` o `GET /api/v1/product/admin/metrics`.
 - Dudas recibidas: `GET /api/v1/product/admin/questions`.
+- Observaciones de mercado consentidas: `GET /api/v1/product/admin/market-observations`.
 - Dudas pendientes de aviso n8n: `GET /api/v1/product/admin/questions/notifications/pending`.
 - Resultado del aviso: `POST /api/v1/product/admin/questions/{id}/notification-result` con
   `{"delivered": true}` o `{"delivered": false, "error": "..."}`.

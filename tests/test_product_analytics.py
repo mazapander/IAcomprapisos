@@ -3,7 +3,7 @@ import uuid
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.db.models import ProductVisitor, UserQuestion
+from app.db.models import MarketObservation, ProductVisitor, UserQuestion
 from app.db.session import get_session
 from app.main import app
 
@@ -183,6 +183,59 @@ def test_n8n_can_acknowledge_question_notification() -> None:
         assert response.json()["status"] == "notified"
         assert question.notification_attempts == 1
         assert question.notified_at is not None
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_consented_market_observation_is_stored_with_useful_prices() -> None:
+    fake = FakeSession()
+    app.dependency_overrides[get_session] = lambda: fake
+    try:
+        response = TestClient(app).post(
+            "/api/v1/product/market-observations",
+            json={
+                "geography_code": "PROV:48",
+                "property_type": "apartment",
+                "property_age": "over_5",
+                "contributor_role": "buyer",
+                "surface_area_m2": 80,
+                "asking_price_eur": 320000,
+                "appraisal_value_eur": 280000,
+                "negotiated_price_eur": 305000,
+                "observed_period": "2026-08-19",
+                "market_data_consent": True,
+            },
+        )
+        assert response.status_code == 201
+        stored = fake.added[-1]
+        assert isinstance(stored, MarketObservation)
+        assert stored.geography_code == "PROV:48"
+        assert stored.observed_period.isoformat() == "2026-08-01"
+        assert response.json()["metrics"]["asking_price_eur_m2"] == 4000
+        assert response.json()["metrics"]["asking_vs_appraisal_pct"] == 14.29
+        assert response.json()["metrics"]["negotiated_discount_pct"] == 4.69
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_market_observation_rejects_missing_consent_and_address_data() -> None:
+    fake = FakeSession()
+    app.dependency_overrides[get_session] = lambda: fake
+    try:
+        response = TestClient(app).post(
+            "/api/v1/product/market-observations",
+            json={
+                "geography_code": "PROV:48",
+                "property_type": "apartment",
+                "property_age": "over_5",
+                "surface_area_m2": 80,
+                "asking_price_eur": 320000,
+                "market_data_consent": False,
+                "address": "Calle que no debe persistirse 1",
+            },
+        )
+        assert response.status_code == 422
+        assert not fake.added
     finally:
         app.dependency_overrides.clear()
 
