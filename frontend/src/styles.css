@@ -433,7 +433,7 @@ body::before { content: ""; position: fixed; z-index: -1; inset: 0; pointer-even
 .search-box, .field > input, .field > select, .field textarea, .number-input, .observatory-range select { background: #fff; }
 
 .spain-map { padding: 16px 14px 0; border: 1px solid #dce4d8; border-radius: 16px; background: linear-gradient(145deg, #eef4eb, #f9fbf5); overflow: hidden; }
-.spain-map__artwork { width: 100%; aspect-ratio: 923 / 658; display: block; overflow: hidden; border-radius: 10px; line-height: 0; }
+.spain-map__artwork { width: 100%; aspect-ratio: 700 / 642.727; display: block; overflow: hidden; border-radius: 10px; line-height: 0; }
 .spain-map__legend { padding: 11px 3px; color: #526157; font-weight: 700; }
 .spain-map__legend i { background: var(--lime); }
 .province-picker button.is-active { background: var(--night); border-color: var(--night); }

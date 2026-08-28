@@ -4,7 +4,7 @@ import { Building2, Menu, X } from 'lucide-react'
 import { TOOLS } from '../app/toolCatalog'
 import type { ToolId } from '../types'
 
-export default function SiteHeader({ onSelect, onHome }: { onSelect: (id: ToolId) => void; onHome: () => void }) {
+export default function SiteHeader({ onSelect, onHome, onMethod }: { onSelect: (id: ToolId) => void; onHome: () => void; onMethod: () => void }) {
   const [mobileMenu, setMobileMenu] = useState(false)
 
   function select(id: ToolId) {
@@ -22,7 +22,7 @@ export default function SiteHeader({ onSelect, onHome }: { onSelect: (id: ToolId
         {TOOLS.map((tool) => (
           <button key={tool.id} type="button" onClick={() => select(tool.id)}>{tool.title}</button>
         ))}
-        <a href="#method" onClick={() => setMobileMenu(false)}>Cómo funciona</a>
+        <button type="button" onClick={() => { setMobileMenu(false); onMethod() }}>Cómo funciona</button>
       </nav>
       <button className="button button--small button--dark desktop-cta" onClick={() => select('mortgage')}>
         Comparar ofertas

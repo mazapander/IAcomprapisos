@@ -22,9 +22,14 @@ export default function App() {
     window.setTimeout(() => document.getElementById('workspace')?.scrollIntoView({ behavior: 'smooth' }), 0)
   }
 
+  function showMethod() {
+    setActiveTool(null)
+    window.setTimeout(() => document.getElementById('method')?.scrollIntoView({ behavior: 'smooth' }), 0)
+  }
+
   return (
     <div className="app-shell">
-      <SiteHeader onSelect={selectTool} onHome={() => setActiveTool(null)} />
+      <SiteHeader onSelect={selectTool} onHome={() => setActiveTool(null)} onMethod={showMethod} />
       <main>
         {activeTool
           ? <ToolView activeTool={activeTool} geography={geography} market={market} onBack={() => setActiveTool(null)} onMarketContext={updateMarketContext} />
