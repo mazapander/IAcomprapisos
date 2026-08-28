@@ -85,7 +85,6 @@ export default function TrendChart({ series }: { series: ObservatorySeries }) {
         {chart.ticks.map((tick) => (
           <g key={tick.y}>
             <line x1={PAD_X} x2={WIDTH - PAD_X} y1={tick.y} y2={tick.y} />
-            <text className="trend-y-label" x={PAD_X - 10} y={tick.y + 4}>{formatValue(tick.value, latest.unit)}</text>
           </g>
         ))}
         {chart.periodTicks.slice(1, -1).map((point) => (
@@ -100,6 +99,11 @@ export default function TrendChart({ series }: { series: ObservatorySeries }) {
         <strong>{formatValue(active.value, latest.unit)}</strong>
         <span>{formatPeriod(active.period)}</span>
       </div>
+      {chart.ticks.map((tick) => (
+        <span className="chart-y-label" key={`label-${tick.y}`} style={{ top: `${(tick.y / HEIGHT) * 100}%` }}>
+          {formatValue(tick.value, latest.unit)}
+        </span>
+      ))}
       <span className="chart-period chart-period--first">{first}</span>
       <span className="chart-period chart-period--last">{last}</span>
       <span className="chart-source">Serie oficial · fuente y periodo verificables</span>
