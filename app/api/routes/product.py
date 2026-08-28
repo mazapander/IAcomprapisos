@@ -9,7 +9,12 @@ from app.api.dependencies import verify_api_key
 from app.core.config import settings
 from app.db.models import ProductEvent, ProductVisitor, UserQuestion
 from app.db.session import get_session
-from app.schemas.product import ConsentRequest, ProductEventRequest, QuestionRequest
+from app.schemas.product import (
+    ConsentRequest,
+    ProductEventRequest,
+    QuestionNotificationResult,
+    QuestionRequest,
+)
 
 router = APIRouter()
 CONSENT_COOKIE = "iacp_consent"
@@ -129,6 +134,7 @@ async def submit_question(
         contact_consent=payload.contact_consent,
         privacy_notice_version=payload.privacy_notice_version,
         status="new",
+        notification_attempts=0,
         created_at=now,
         expires_at=now + timedelta(days=settings.product_data_retention_days),
     )
@@ -187,11 +193,42 @@ async def product_metrics(
 @router.get("/admin/questions", dependencies=[Depends(verify_api_key)])
 async def list_questions(
     limit: int = Query(100, ge=1, le=500),
+    status: str | None = Query(default=None, pattern=r"^(new|notified|resolved|dismissed)$"),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    statement = select(UserQuestion)
+    if status:
+        statement = statement.where(UserQuestion.status == status)
+    rows = (await session.scalars(statement.order_by(UserQuestion.created_at.desc()).limit(limit))).all()
+    return [
+        {
+            "id": str(row.id),
+            "question": row.question,
+            "category": row.category,
+            "journey_stage": row.journey_stage,
+            "geography_code": row.geography_code,
+            "contact_email": row.contact_email,
+            "contact_consent": row.contact_consent,
+            "status": row.status,
+            "notification_attempts": row.notification_attempts,
+            "notified_at": row.notified_at,
+            "created_at": row.created_at,
+        }
+        for row in rows
+    ]
+
+
+@router.get("/admin/questions/notifications/pending", dependencies=[Depends(verify_api_key)])
+async def pending_question_notifications(
+    limit: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict]:
     rows = (
         await session.scalars(
-            select(UserQuestion).order_by(UserQuestion.created_at.desc()).limit(limit)
+            select(UserQuestion)
+            .where(UserQuestion.status == "new")
+            .order_by(UserQuestion.created_at.asc())
+            .limit(limit)
         )
     ).all()
     return [
@@ -201,12 +238,40 @@ async def list_questions(
             "category": row.category,
             "journey_stage": row.journey_stage,
             "geography_code": row.geography_code,
-            "contact_email": row.contact_email,
-            "status": row.status,
+            "contact_email": row.contact_email if row.contact_consent else None,
+            "notification_attempts": row.notification_attempts,
             "created_at": row.created_at,
         }
         for row in rows
     ]
+
+
+@router.post(
+    "/admin/questions/{question_id}/notification-result",
+    dependencies=[Depends(verify_api_key)],
+)
+async def record_question_notification_result(
+    question_id: uuid.UUID,
+    payload: QuestionNotificationResult,
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    question = await session.get(UserQuestion, question_id)
+    if question is None:
+        raise HTTPException(status_code=404, detail="Question not found")
+    question.notification_attempts += 1
+    if payload.delivered:
+        question.status = "notified"
+        question.notified_at = datetime.now(UTC)
+        question.last_notification_error = None
+    else:
+        question.status = "new"
+        question.last_notification_error = payload.error
+    await session.commit()
+    return {
+        "id": str(question.id),
+        "status": question.status,
+        "notification_attempts": question.notification_attempts,
+    }
 
 
 @router.post("/admin/purge-expired", dependencies=[Depends(verify_api_key)])

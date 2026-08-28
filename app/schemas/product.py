@@ -91,3 +91,14 @@ class QuestionRequest(BaseModel):
         if self.contact_email and not self.contact_consent:
             raise ValueError("Contact consent is required when an email is provided")
         return self
+
+
+class QuestionNotificationResult(BaseModel):
+    delivered: bool
+    error: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def failed_delivery_requires_error(self):
+        if not self.delivered and not self.error:
+            raise ValueError("An error is required when delivery fails")
+        return self

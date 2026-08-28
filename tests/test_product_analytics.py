@@ -1,6 +1,9 @@
+import uuid
+
 from fastapi.testclient import TestClient
 
-from app.db.models import ProductVisitor
+from app.core.config import settings
+from app.db.models import ProductVisitor, UserQuestion
 from app.db.session import get_session
 from app.main import app
 
@@ -13,6 +16,8 @@ class FakeSession:
     async def get(self, model, identifier):
         if model is ProductVisitor:
             return self.visitors.get(identifier)
+        if model is UserQuestion:
+            return next((value for value in self.added if value.id == identifier), None)
         return None
 
     def add(self, value):
@@ -124,6 +129,60 @@ def test_question_requires_explicit_privacy_acceptance() -> None:
             },
         )
         assert response.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_question_is_persisted_for_n8n_notification() -> None:
+    fake = FakeSession()
+    app.dependency_overrides[get_session] = lambda: fake
+    try:
+        response = TestClient(app).post(
+            "/api/v1/product/questions",
+            json={
+                "question": "Quiero saber si esta oferta está por encima de mercado.",
+                "category": "offer",
+                "journey_stage": "offer_received",
+                "geography_code": "PROV:48",
+                "contact_email": "buyer@example.com",
+                "contact_consent": True,
+                "privacy_notice_accepted": True,
+            },
+        )
+        assert response.status_code == 201
+        stored = fake.added[-1]
+        assert isinstance(stored, UserQuestion)
+        assert stored.status == "new"
+        assert stored.notification_attempts == 0
+        assert stored.contact_email == "buyer@example.com"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_n8n_can_acknowledge_question_notification() -> None:
+    fake = FakeSession()
+    question = UserQuestion(
+        id=uuid.uuid4(),
+        question="¿Me podéis ayudar con mi oferta?",
+        category="offer",
+        journey_stage="offer_received",
+        contact_consent=False,
+        privacy_notice_version="2026-08",
+        status="new",
+        notification_attempts=0,
+    )
+    fake.add(question)
+    app.dependency_overrides[get_session] = lambda: fake
+    try:
+        response = TestClient(app).post(
+            f"/api/v1/product/admin/questions/{question.id}/notification-result",
+            headers={"X-API-Key": settings.api_key},
+            json={"delivered": True},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "notified"
+        assert question.notification_attempts == 1
+        assert question.notified_at is not None
     finally:
         app.dependency_overrides.clear()
 

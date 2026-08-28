@@ -155,5 +155,8 @@ class UserQuestion(Base):
     contact_consent: Mapped[bool] = mapped_column(Boolean, default=False)
     privacy_notice_version: Mapped[str] = mapped_column(String(20))
     status: Mapped[str] = mapped_column(String(20), default="new")
+    notification_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_notification_error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
